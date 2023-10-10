@@ -8,30 +8,131 @@ from keras.layers import Conv2D, UpSampling2D
 from keras.layers import add
 from keras.models import Model
 
-from CustomLayers.ConvBlock2D import conv_block_2D
+from CustomLayers.ConvBlock3D import Gen_Conv3d_Block
 
 kernel_initializer = 'he_uniform'
 interpolation = "nearest"
 
 class DuckNet(nn.Module):
-    def __init__(self,input_channels,starting_filters):
+    def __init__(self,input_channels, out_classes, starting_filters):
         super().__init__()
         
-        self.p1 = nn.Conv3D(input_channels, starting_filters * 2, 2, strides=2, padding='same')
-        self.p2 = nn.Conv3D(starting_filters * 2, starting_filters * 4, 2, strides=2, padding='same')
-        self.p3 = nn.Conv3D(starting_filters * 4, starting_filters * 8, 2, strides=2, padding='same')
-        self.p4 = nn.Conv3D(starting_filters * 8, starting_filters * 16, 2, strides=2, padding='same')
-        self.p5 = nn.Conv3D(starting_filters * 16, starting_filters * 32, 2, strides=2, padding='same')
+        self.out_classes = out_classes
+        self.starting_filters = starting_filters
 
+        self.p1 = nn.Conv3d(input_channels, starting_filters * 2, 2, strides=2, padding='same')
+        self.p2 = nn.Conv3d(starting_filters * 2, starting_filters * 4, 2, strides=2, padding='same')
+        self.p3 = nn.Conv3d(starting_filters * 4, starting_filters * 8, 2, strides=2, padding='same')
+        self.p4 = nn.Conv3d(starting_filters * 8, starting_filters * 16, 2, strides=2, padding='same')
+        self.p5 = nn.Conv3d(starting_filters * 16, starting_filters * 32, 2, strides=2, padding='same')
 
-    def forward(self,):
+        self.t0 = Gen_Conv3d_Block(starting_filters, 'duck', repeat=1)
+
+        self.l1i = nn.Conv3d(starting_filters,starting_filters * 2, 2, strides=2, padding='same')
+        #self.s1 = add([l1i, p1])
+        self.t1 = Gen_Conv3d_Block(starting_filters * 2, starting_filters * 2, 'duck', repeat=1)
+
+        self.l2i = nn.Conv3d(starting_filters * 2, starting_filters * 4, 2, strides=2, padding='same')
+        #self.s2 = add([l2i, p2])
+        self.t2 = Gen_Conv3d_Block(starting_filters * 4, starting_filters * 4, 'duck', repeat=1)
+
+        self.l3i = nn.Conv3d(starting_filters * 4, starting_filters * 8, 2, strides=2, padding='same')
+        #s3 = add([l3i, p3])
+        self.t3 = Gen_Conv3d_Block(starting_filters * 8, starting_filters * 8, 'duck', repeat=1)
+
+        self.l4i = nn.Conv3d(starting_filters * 8, starting_filters * 16, 2, strides=2, padding='same')
+        #s4 = add([l4i, p4])
+        self.t4 = Gen_Conv3d_Block(starting_filters * 16, starting_filters * 16, 'duck', repeat=1)
+
+        self.l5i = nn.Conv3d(starting_filters * 16, starting_filters * 32, 2, strides=2, padding='same')
+        #s5 = add([l5i, p5])
+        self.t51 = Gen_Conv3d_Block(starting_filters * 32, 'resnet', repeat=2)
+        self.t53 = Gen_Conv3d_Block(starting_filters * 16, 'resnet', repeat=2)
+
+        self.l5o = nn.Upsample(scale_factor = (2, 2, 2), interpolation=interpolation)
+        #c4 = add([l5o, t4])
+        self.q4 = Gen_Conv3d_Block(starting_filters * 8, 'duck', repeat=1)
+
+        self.l4o = nn.Upsample(scale_factor = (2, 2, 2), interpolation=interpolation)
+        #c3 = add([l4o, t3])
+        self.q3 = Gen_Conv3d_Block(starting_filters * 4, 'duck', repeat=1)
+
+        self.l3o = nn.Upsample(scale_factor = (2, 2, 2), interpolation=interpolation)
+        #c2 = add([l3o, t2])
+        self.q6 = Gen_Conv3d_Block(starting_filters * 2, 'duck', repeat=1)
+
+        self.l2o = nn.Upsample(scale_factor = (2, 2, 2), interpolation=interpolation)
+        #c1 = add([l2o, t1])
+        self.q1 = Gen_Conv3d_Block(starting_filters, 'duck', repeat=1)
+
+        self.l1o = nn.Upsample((2, 2, 2), interpolation=interpolation)
+        #c0 = add([l1o, t0])
+        self.z1 = Gen_Conv3d_Block(starting_filters, 'duck', repeat=1)
+        
+        self.output = nn.Conv3D(starting_filters,out_classes, (1, 1, 1))
+        self.acti = nn.Sigmoid()
+        
+        
+
+    def forward(self,x):
+        out_p1 = self.p1(x)
+        out_p2 = self.p2(out_p1)
+        out_p3 = self.p3(out_p2)
+        out_p4 = self.p4(out_p3)
+        out_p5 = self.p5(out_p4)
+
+        out_t0 = self.t0(x)
+
+        out_l1i = self.l1i(out_t0)
+        s1 = out_l1i + out_p1
+        out_t1 = self.t1(s1)
+
+        out_l2i = self.l2i(out_t1)
+        s2 = out_l2i + out_p2
+        out_t2 = self.t2(s2)
+
+        out_l3i = self.l3i(out_t2)
+        s3 = out_l3i + out_p3
+        out_t3 = self.t3(s3)
+
+        out_l4i = self.l4i(out_t3)
+        s4 = out_l4i + out_p4
+        out_t4 = self.t4(s4)
+
+        out_l5i = self.l5i(out_t4)
+        s5 = out_l5i + out_p5
+        out_t51 = self.t51(s5)
+        out_t53 = self.t53(out_t51)
+
+        out_l5o = self.l5o(out_t53)
+        c4 = out_l5o + out_t4
+        out_q4 = self.q4(c4)
+
+        out_l4o = self.l4o(out_q4)
+        c3 = out_l4o + out_t3
+        out_q3 = self.q3(c3)
+    
+        out_l3o = self.l3o(out_q3)
+        c2 = out_l3o + out_t2
+        out_q6 = self.q6(c2)
+
+        out_l2o = self.l2o(out_q6)
+        c1 = out_l2o + out_t1
+        out_q1 = self.q1(c1)
+
+        out_l1o = self.l1o(out_q1)
+        c0 = out_l1o + out_t0
+        out_z1 = self.z1(c0)
+        
+        output = self.output(out_z1)
+
         return output
     
 
 def create_model(img_height,img_width,img_depth,input_channels,out_classes,starting_filters):
     
     def weight_init(m):
-        if isinstance(m, nn.Conv2d) or isinstance(m, nn.Linear):
+        if isinstance(m, nn.Conv3d) or isinstance(m, nn.Linear):
             nn.init.xavier_uniform_(m.weight, gain=nn.init.calculate_gain('relu'))
             nn.init.zeros_(m.bias)
 
@@ -41,62 +142,61 @@ def create_model(img_height,img_width,img_depth,input_channels,out_classes,start
     return ducknet
 
 
-def create_model(img_height, img_width, input_chanels, out_classes, starting_filters):
-    input_layer = tf.keras.layers.Input((img_height, img_width, input_chanels))
+# def create_model(img_height, img_width, input_chanels, out_classes, starting_filters):
+#     input_layer = tf.keras.layers.Input((img_height, img_width, input_chanels))
 
-    print('Starting DUCK-Net')
+#     print('Starting DUCK-Net')
 
-    p1 = Conv2D(starting_filters * 2, 2, strides=2, padding='same')(input_layer)
-    p2 = Conv2D(starting_filters * 4, 2, strides=2, padding='same')(p1)
-    p3 = Conv2D(starting_filters * 8, 2, strides=2, padding='same')(p2)
-    p4 = Conv2D(starting_filters * 16, 2, strides=2, padding='same')(p3)
-    p5 = Conv2D(starting_filters * 32, 2, strides=2, padding='same')(p4)
+#     p1 = Conv2D(starting_filters * 2, 2, strides=2, padding='same')(input_layer)
+#     p2 = Conv2D(starting_filters * 4, 2, strides=2, padding='same')(p1)
+#     p3 = Conv2D(starting_filters * 8, 2, strides=2, padding='same')(p2)
+#     p4 = Conv2D(starting_filters * 16, 2, strides=2, padding='same')(p3)
+#     p5 = Conv2D(starting_filters * 32, 2, strides=2, padding='same')(p4)
 
-    t0 = conv_block_2D(input_layer, starting_filters, 'duckv2', repeat=1)
+#     t0 = conv_block_2D(input_layer, starting_filters, 'duckv2', repeat=1)
 
-    l1i = Conv2D(starting_filters * 2, 2, strides=2, padding='same')(t0)
-    s1 = add([l1i, p1])
-    t1 = conv_block_2D(s1, starting_filters * 2, 'duckv2', repeat=1)
+#     l1i = Conv2D(starting_filters * 2, 2, strides=2, padding='same')(t0)
+#     s1 = add([l1i, p1])
+#     t1 = conv_block_2D(s1, starting_filters * 2, 'duckv2', repeat=1)
 
-    l2i = Conv2D(starting_filters * 4, 2, strides=2, padding='same')(t1)
-    s2 = add([l2i, p2])
-    t2 = conv_block_2D(s2, starting_filters * 4, 'duckv2', repeat=1)
+#     l2i = Conv2D(starting_filters * 4, 2, strides=2, padding='same')(t1)
+#     s2 = add([l2i, p2])
+#     t2 = conv_block_2D(s2, starting_filters * 4, 'duckv2', repeat=1)
 
-    l3i = Conv2D(starting_filters * 8, 2, strides=2, padding='same')(t2)
-    s3 = add([l3i, p3])
-    t3 = conv_block_2D(s3, starting_filters * 8, 'duckv2', repeat=1)
+#     l3i = Conv2D(starting_filters * 8, 2, strides=2, padding='same')(t2)
+#     s3 = add([l3i, p3])
+#     t3 = conv_block_2D(s3, starting_filters * 8, 'duckv2', repeat=1)
 
-    l4i = Conv2D(starting_filters * 16, 2, strides=2, padding='same')(t3)
-    s4 = add([l4i, p4])
-    t4 = conv_block_2D(s4, starting_filters * 16, 'duckv2', repeat=1)
+#     l4i = Conv2D(starting_filters * 16, 2, strides=2, padding='same')(t3)
+#     s4 = add([l4i, p4])
+#     t4 = conv_block_2D(s4, starting_filters * 16, 'duckv2', repeat=1)
 
-    l5i = Conv2D(starting_filters * 32, 2, strides=2, padding='same')(t4)
-    s5 = add([l5i, p5])
-    t51 = conv_block_2D(s5, starting_filters * 32, 'resnet', repeat=2)
-    t53 = conv_block_2D(t51, starting_filters * 16, 'resnet', repeat=2)
+#     l5i = Conv2D(starting_filters * 32, 2, strides=2, padding='same')(t4)
+#     s5 = add([l5i, p5])
+#     t51 = conv_block_2D(s5, starting_filters * 32, 'resnet', repeat=2)
+#     t53 = conv_block_2D(t51, starting_filters * 16, 'resnet', repeat=2)
 
-    l5o = UpSampling2D((2, 2), interpolation=interpolation)(t53)
-    c4 = add([l5o, t4])
-    q4 = conv_block_2D(c4, starting_filters * 8, 'duckv2', repeat=1)
+#     l5o = UpSampling2D((2, 2), interpolation=interpolation)(t53)
+#     c4 = add([l5o, t4])
+#     q4 = conv_block_2D(c4, starting_filters * 8, 'duckv2', repeat=1)
 
-    l4o = UpSampling2D((2, 2), interpolation=interpolation)(q4)
-    c3 = add([l4o, t3])
-    q3 = conv_block_2D(c3, starting_filters * 4, 'duckv2', repeat=1)
+#     l4o = UpSampling2D((
+#     l1o = UpSampling2D((2, 2), interpolation=interpolation)(q1)
+#     c0 = add([l1o, t0])
+#     z1 = conv_block_2D(c0, starting_filters, 'duckv2', repeat=1)
 
-    l3o = UpSampling2D((2, 2), interpolation=interpolation)(q3)
-    c2 = add([l3o, t2])
-    q6 = conv_block_2D(c2, starting_filters * 2, 'duckv2', repeat=1)
+#     output = Conv2D(out_classes, (1, 1), activation='sigmoid')(z1)
 
-    l2o = UpSampling2D((2, 2), interpolation=interpolation)(q6)
-    c1 = add([l2o, t1])
-    q1 = conv_block_2D(c1, starting_filters, 'duckv2', repeat=1)
+#     model = Model(inputs=input_layer, outputs=output)
 
-    l1o = UpSampling2D((2, 2), interpolation=interpolation)(q1)
-    c0 = add([l1o, t0])
-    z1 = conv_block_2D(c0, starting_filters, 'duckv2', repeat=1)
+#     return model2, 2), interpolation=interpolation)(q4)
+#     c3 = add([l4o, t3])
+#     q3 = conv_block_2D(c3, starting_filters * 4, 'duckv2', repeat=1)
 
-    output = Conv2D(out_classes, (1, 1), activation='sigmoid')(z1)
+#     l3o = UpSampling2D((2, 2), interpolation=interpolation)(q3)
+#     c2 = add([l3o, t2])
+#     q6 = conv_block_2D(c2, starting_filters * 2, 'duckv2', repeat=1)
 
-    model = Model(inputs=input_layer, outputs=output)
-
-    return model
+#     l2o = UpSampling2D((2, 2), interpolation=interpolation)(q6)
+#     c1 = add([l2o, t1])
+#     q1 = conv_block_2D(c1, starting_filters, 'duckv2', repeat=1)
