@@ -10,7 +10,7 @@ class Gen_Conv3d_Block(nn.Module):
         self.filters =  filters
         self.block_dict = {'seperated':Seperated_Conv3d_Block, 'duck':Duck_Conv3d_Block, 'midscope': Midscope_Conv3d_Block, 
                            'widescope':Widescope_Conv3d_Block, 'resnet':Resnet_Conv3d_Block,'double_convolution':DoubleConv_with_BatchNorm, 'conv':Conv3d_Block}
-        self.conv_block = nn.Sequential([self.block_dict[self.block_type](filters,dilation,size,padding)]*repeat])
+        self.conv_block = nn.Sequential([self.block_dict[self.block_type](filters,dilation,size,padding)]*repeat)
 
     def forward(self,x):
         out = self.conv_block(x)
