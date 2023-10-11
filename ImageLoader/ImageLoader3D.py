@@ -20,7 +20,7 @@ class ImageLoader3D(Dataset):
 
     def __len__(self,):
         return len(self.paths)
-    def __get__(self,index):
+    def __getitem__(self,index):
 
         if(self.type_of_imgs == 'nifty'):
             image = nib.load(self.paths[index]).get_fdata()
@@ -40,6 +40,8 @@ class ImageLoader3D(Dataset):
         image -= np.min(image)
         image /= np.max(image)
 
+        image = np.expand_dims(image,-1)
+        gt = np.stack([gt==0,gt>0],-1)
 
         data_dict = {}
         data_dict['input'] = image

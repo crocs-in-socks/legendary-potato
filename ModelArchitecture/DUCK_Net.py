@@ -6,7 +6,7 @@ import torch.nn as nn
 # from keras.layers import add
 # from keras.models import Model
 
-from CustomLayers.ConvBlock3D import Gen_Conv3d_Block
+from CustomLayers.ConvBlock3D import Gen_Conv3d_Block,Conv3dSame
 
 kernel_initializer = 'he_uniform'
 interpolation = "nearest"
@@ -18,56 +18,56 @@ class DuckNet(nn.Module):
         self.out_classes = out_classes
         self.starting_filters = starting_filters
 
-        self.p1 = nn.Conv3d(input_channels, starting_filters * 2, 2, stride=2, padding='same')
-        self.p2 = nn.Conv3d(starting_filters * 2, starting_filters * 4, 2, stride=2, padding='same')
-        self.p3 = nn.Conv3d(starting_filters * 4, starting_filters * 8, 2, stride=2, padding='same')
-        self.p4 = nn.Conv3d(starting_filters * 8, starting_filters * 16, 2, stride=2, padding='same')
-        self.p5 = nn.Conv3d(starting_filters * 16, starting_filters * 32, 2, stride=2, padding='same')
+        self.p1 = Conv3dSame(input_channels, starting_filters * 2, 2, stride=2)
+        self.p2 = Conv3dSame(starting_filters * 2, starting_filters * 4, 2, stride=2)
+        self.p3 = Conv3dSame(starting_filters * 4, starting_filters * 8, 2, stride=2)
+        self.p4 = Conv3dSame(starting_filters * 8, starting_filters * 16, 2, stride=2)
+        self.p5 = Conv3dSame(starting_filters * 16, starting_filters * 32, 2, stride=2)
 
-        self.t0 = Gen_Conv3d_Block(starting_filters, 'duck', repeat=1)
+        self.t0 = Gen_Conv3d_Block(input_channels,starting_filters, block_type='duck', repeat=1)
 
-        self.l1i = nn.Conv3d(starting_filters,starting_filters * 2, 2, stride=2, padding='same')
+        self.l1i = Conv3dSame(starting_filters,starting_filters * 2, 2, stride=2)
         #self.s1 = add([l1i, p1])
-        self.t1 = Gen_Conv3d_Block(starting_filters * 2, starting_filters * 2, 'duck', repeat=1)
+        self.t1 = Gen_Conv3d_Block(starting_filters * 2,starting_filters * 2, block_type='duck', repeat=1)
 
-        self.l2i = nn.Conv3d(starting_filters * 2, starting_filters * 4, 2, stride=2, padding='same')
+        self.l2i = Conv3dSame(starting_filters * 2, starting_filters * 4, 2, stride=2)
         #self.s2 = add([l2i, p2])
-        self.t2 = Gen_Conv3d_Block(starting_filters * 4, starting_filters * 4, 'duck', repeat=1)
+        self.t2 = Gen_Conv3d_Block(starting_filters * 4,starting_filters * 4, block_type='duck', repeat=1)
 
-        self.l3i = nn.Conv3d(starting_filters * 4, starting_filters * 8, 2, stride=2, padding='same')
+        self.l3i = Conv3dSame(starting_filters * 4, starting_filters * 8, 2, stride=2)
         #s3 = add([l3i, p3])
-        self.t3 = Gen_Conv3d_Block(starting_filters * 8, starting_filters * 8, 'duck', repeat=1)
+        self.t3 = Gen_Conv3d_Block(starting_filters * 8,starting_filters * 8, block_type='duck', repeat=1)
 
-        self.l4i = nn.Conv3d(starting_filters * 8, starting_filters * 16, 2, stride=2, padding='same')
+        self.l4i = Conv3dSame(starting_filters * 8, starting_filters * 16, 2, stride=2)
         #s4 = add([l4i, p4])
-        self.t4 = Gen_Conv3d_Block(starting_filters * 16, starting_filters * 16, 'duck', repeat=1)
+        self.t4 = Gen_Conv3d_Block(starting_filters * 16,starting_filters * 16, block_type='duck', repeat=1)
 
-        self.l5i = nn.Conv3d(starting_filters * 16, starting_filters * 32, 2, stride=2, padding='same')
+        self.l5i = Conv3dSame(starting_filters * 16, starting_filters * 32, 2, stride=2)
         #s5 = add([l5i, p5])
-        self.t51 = Gen_Conv3d_Block(starting_filters * 32, 'resnet', repeat=2)
-        self.t53 = Gen_Conv3d_Block(starting_filters * 16, 'resnet', repeat=2)
+        self.t51 = Gen_Conv3d_Block(starting_filters * 32,starting_filters * 32, block_type='resnet', repeat=2)
+        self.t53 = Gen_Conv3d_Block(starting_filters * 32,starting_filters * 16, block_type='resnet', repeat=2)
 
-        self.l5o = nn.Upsample(scale_factor = (2, 2, 2), interpolation=interpolation)
+        self.l5o = nn.Upsample(scale_factor = (2, 2, 2), mode=interpolation)
         #c4 = add([l5o, t4])
-        self.q4 = Gen_Conv3d_Block(starting_filters * 8, 'duck', repeat=1)
+        self.q4 = Gen_Conv3d_Block(starting_filters * 16,starting_filters * 8, block_type='duck', repeat=1)
 
-        self.l4o = nn.Upsample(scale_factor = (2, 2, 2), interpolation=interpolation)
+        self.l4o = nn.Upsample(scale_factor = (2, 2, 2), mode=interpolation)
         #c3 = add([l4o, t3])
-        self.q3 = Gen_Conv3d_Block(starting_filters * 4, 'duck', repeat=1)
+        self.q3 = Gen_Conv3d_Block(starting_filters * 8,starting_filters * 4, block_type='duck', repeat=1)
 
-        self.l3o = nn.Upsample(scale_factor = (2, 2, 2), interpolation=interpolation)
+        self.l3o = nn.Upsample(scale_factor = (2, 2, 2), mode=interpolation)
         #c2 = add([l3o, t2])
-        self.q6 = Gen_Conv3d_Block(starting_filters * 2, 'duck', repeat=1)
+        self.q6 = Gen_Conv3d_Block(starting_filters * 4,starting_filters * 2, block_type='duck', repeat=1)
 
-        self.l2o = nn.Upsample(scale_factor = (2, 2, 2), interpolation=interpolation)
+        self.l2o = nn.Upsample(scale_factor = (2, 2, 2), mode=interpolation)
         #c1 = add([l2o, t1])
-        self.q1 = Gen_Conv3d_Block(starting_filters, 'duck', repeat=1)
+        self.q1 = Gen_Conv3d_Block(starting_filters * 2,starting_filters, block_type='duck', repeat=1)
 
-        self.l1o = nn.Upsample((2, 2, 2), interpolation=interpolation)
+        self.l1o = nn.Upsample(scale_factor = (2, 2, 2), mode=interpolation)
         #c0 = add([l1o, t0])
-        self.z1 = Gen_Conv3d_Block(starting_filters, 'duck', repeat=1)
+        self.z1 = Gen_Conv3d_Block(starting_filters,starting_filters, block_type='duck', repeat=1)
         
-        self.output = nn.Conv3D(starting_filters,out_classes, (1, 1, 1))
+        self.output = Conv3dSame(starting_filters,out_classes, (1, 1, 1))
         self.acti = nn.Sigmoid()
         
         
@@ -123,14 +123,96 @@ class DuckNet(nn.Module):
         out_z1 = self.z1(c0)
         
         output = self.output(out_z1)
+        output = self.acti(output)
 
         return output
     
+class DuckNet_smaller(nn.Module):
+    def __init__(self,input_channels, out_classes, starting_filters):
+        super().__init__()
+        
+        self.out_classes = out_classes
+        self.starting_filters = starting_filters
+
+        self.p1 = Conv3dSame(input_channels, starting_filters * 2, 2, stride=2)
+        self.p2 = Conv3dSame(starting_filters * 2, starting_filters * 4, 2, stride=2)
+        self.p3 = Conv3dSame(starting_filters * 4, starting_filters * 8, 2, stride=2)
+
+
+        self.t0 = Gen_Conv3d_Block(input_channels,starting_filters, block_type='duck', repeat=1)
+
+        self.l1i = Conv3dSame(starting_filters,starting_filters * 2, 2, stride=2)
+        #self.s1 = add([l1i, p1])
+        self.t1 = Gen_Conv3d_Block(starting_filters * 2,starting_filters * 2, block_type='duck', repeat=1)
+
+        self.l2i = Conv3dSame(starting_filters * 2, starting_filters * 4, 2, stride=2)
+        #self.s2 = add([l2i, p2])
+        self.t2 = Gen_Conv3d_Block(starting_filters * 4,starting_filters * 4, block_type='duck', repeat=1)
+
+        self.l3i = Conv3dSame(starting_filters * 4, starting_filters * 8, 2, stride=2)
+        #s3 = add([l3i, p3])
+        self.t31 = Gen_Conv3d_Block(starting_filters * 8,starting_filters * 8, block_type='resnet', repeat=2)
+        self.t33 = Gen_Conv3d_Block(starting_filters * 8,starting_filters * 4, block_type='resnet', repeat=2)
+
+        self.l3o = nn.Upsample(scale_factor = (2, 2, 2), mode=interpolation)
+        #c2 = add([l3o, t2])
+        self.q6 = Gen_Conv3d_Block(starting_filters * 4,starting_filters * 2, block_type='duck', repeat=1)
+
+        self.l2o = nn.Upsample(scale_factor = (2, 2, 2), mode=interpolation)
+        #c1 = add([l2o, t1])
+        self.q1 = Gen_Conv3d_Block(starting_filters * 2,starting_filters, block_type='duck', repeat=1)
+
+        self.l1o = nn.Upsample(scale_factor = (2, 2, 2), mode=interpolation)
+        #c0 = add([l1o, t0])
+        self.z1 = Gen_Conv3d_Block(starting_filters,starting_filters, block_type='duck', repeat=1)
+        
+        self.output = Conv3dSame(starting_filters,out_classes, (1, 1, 1))
+        self.acti = nn.Sigmoid()
+        
+        
+
+    def forward(self,x):
+        out_p1 = self.p1(x)
+        out_p2 = self.p2(out_p1)
+        out_p3 = self.p3(out_p2)
+
+        out_t0 = self.t0(x)
+
+        out_l1i = self.l1i(out_t0)
+        s1 = out_l1i + out_p1
+        out_t1 = self.t1(s1)
+
+        out_l2i = self.l2i(out_t1)
+        s2 = out_l2i + out_p2
+        out_t2 = self.t2(s2)
+
+        out_l3i = self.l3i(out_t2)
+        s3 = out_l3i + out_p3
+        out_t31 = self.t31(s3)
+        out_t33 = self.t33(out_t31)
+    
+        out_l3o = self.l3o(out_t33)
+        c2 = out_l3o + out_t2
+        out_q6 = self.q6(c2)
+
+        out_l2o = self.l2o(out_q6)
+        c1 = out_l2o + out_t1
+        out_q1 = self.q1(c1)
+
+        out_l1o = self.l1o(out_q1)
+        c0 = out_l1o + out_t0
+        out_z1 = self.z1(c0)
+        
+        output = self.output(out_z1)
+        output = self.acti(output)
+
+        return output
+
 
 def create_model(img_height,img_width,img_depth,input_channels,out_classes,starting_filters):
     
     def weight_init(m):
-        if isinstance(m, nn.Conv3d) or isinstance(m, nn.Linear):
+        if isinstance(m, Conv3dSame) or isinstance(m, nn.Linear):
             nn.init.xavier_uniform_(m.weight, gain=nn.init.calculate_gain('relu'))
             nn.init.zeros_(m.bias)
 

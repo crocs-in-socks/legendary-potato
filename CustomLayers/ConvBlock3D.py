@@ -1,43 +1,48 @@
 import torch
 import torch.nn as nn
-
+import math
+import torch.nn.functional as F
 
 kernel_initializer = 'he_uniform'
 
 class Gen_Conv3d_Block(nn.Module):
-    def __init__(self,filters, block_type, dilation=1, size=3, padding='same', repeat=1):
+    def __init__(self,in_filters,filters, block_type, dilation=1, size=3, repeat=1):
+        super().__init__()
         self.block_type = block_type
         self.filters =  filters
         self.block_dict = {'seperated':Seperated_Conv3d_Block, 'duck':Duck_Conv3d_Block, 'midscope': Midscope_Conv3d_Block, 
                            'widescope':Widescope_Conv3d_Block, 'resnet':Resnet_Conv3d_Block,'double_convolution':DoubleConv_with_BatchNorm, 'conv':Conv3d_Block}
-        self.conv_block = nn.Sequential([self.block_dict[self.block_type](filters,dilation,size,padding)]*repeat)
+        blocks = [self.block_dict[self.block_type](in_filters,filters,dilation,size)] + [self.block_dict[self.block_type](filters,filters,dilation,size) for i in range(repeat-1)]
+        self.conv_block = nn.Sequential(*blocks)
 
     def forward(self,x):
         out = self.conv_block(x)
         return out
 
 class Conv3d_Block(nn.Module):
-    def __init__(self,filters,size=3,padding='same',dilation_rate=1):
-        self.conv = nn.Conv3d(filters, filters, (size, size, size), padding='same')
+    def __init__(self,in_filters,filters,size=3,dilation_rate=1):
+        super().__init__()
+        self.conv = Conv3dSame(in_filters, filters, (size, size, size), )
     def forward(self,x):
         out = self.conv(x)
 
 class Duck_Conv3d_Block(nn.Module):
-    def __init__(self,filters,size=3,padding='same',dilation_rate=1):
-        self.bn1 = nn.BatchNorm3d(filters)
-        self.wide = Widescope_Conv3d_Block(filters)
-        self.mid = Midscope_Conv3d_Block(filters)
+    def __init__(self,in_filters,filters,size=3,dilation_rate=1):
+        super().__init__()
+        self.bn1 = nn.BatchNorm3d(in_filters)
+        self.wide = Widescope_Conv3d_Block(in_filters,filters)
+        self.mid = Midscope_Conv3d_Block(in_filters,filters)
         
-        self.res_1 = Resnet_Conv3d_Block(filters)
+        self.res_1 = Resnet_Conv3d_Block(in_filters,filters)
         
-        self.res_2_1 = Resnet_Conv3d_Block(filters)
-        self.res_2_2 = Resnet_Conv3d_Block(filters)
+        self.res_2_1 = Resnet_Conv3d_Block(in_filters,filters)
+        self.res_2_2 = Resnet_Conv3d_Block(filters,filters)
 
-        self.res_3_1 = Resnet_Conv3d_Block(filters)
-        self.res_3_2 = Resnet_Conv3d_Block(filters)
-        self.res_3_3 = Resnet_Conv3d_Block(filters)
+        self.res_3_1 = Resnet_Conv3d_Block(in_filters,filters)
+        self.res_3_2 = Resnet_Conv3d_Block(filters,filters)
+        self.res_3_3 = Resnet_Conv3d_Block(filters,filters)
 
-        self.sep = Seperated_Conv3d_Block(filters,size=6)
+        self.sep = Seperated_Conv3d_Block(in_filters,filters,size=6)
         
         self.bn2 = nn.BatchNorm3d(filters)
 
@@ -45,7 +50,7 @@ class Duck_Conv3d_Block(nn.Module):
         out = self.bn1(x)
 
         out_wide = self.wide(out)
-        out_mid = self.wide(out)
+        out_mid = self.mid(out)
         
         out_res_1 = self.res_1(out)
         
@@ -59,24 +64,26 @@ class Duck_Conv3d_Block(nn.Module):
         out_sep = self.sep(out)
 
         out  = out_wide + out_mid + out_res_1 + out_res_2 + out_res_3 + out_sep
+        #out  = out_mid + out_res_1 + out_res_2 + out_res_3 + out_sep
 
-        out = self.wide(out)
+        out = self.bn2(out)
         
         return out
 
 class Seperated_Conv3d_Block(nn.Module):
-    def __init__(self,filters,size=3,padding='same',dilation_rate=1):
-        self.conv1 = nn.Conv3d(filters, filters, (1, 1, size), padding='same')
+    def __init__(self,in_filters,filters,size=3,dilation_rate=1):
+        super().__init__()
+        self.conv1 = Conv3dSame(in_filters, filters, (1, 1, size), )
         self.relu1 = nn.ReLU()
         self.bn1 = nn.BatchNorm3d(filters)
 
-        self.conv2 = nn.Conv3d(filters, filters, (1, size, 1), padding='same')
+        self.conv2 = Conv3dSame(filters, filters, (1, size, 1), )
         self.relu2 = nn.ReLU()
         self.bn2 = nn.BatchNorm3d(filters)
 
-        self.conv2 = nn.Conv3d(filters, filters, (size, 1, 1), padding='same')
-        self.relu2 = nn.ReLU()
-        self.bn2 = nn.BatchNorm3d(filters)
+        self.conv3 = Conv3dSame(filters, filters, (size, 1, 1), )
+        self.relu3 = nn.ReLU()
+        self.bn3 = nn.BatchNorm3d(filters)
 
     def forward(self,x):
         out = self.conv1(x)
@@ -87,15 +94,20 @@ class Seperated_Conv3d_Block(nn.Module):
         out = self.relu2(out)
         out = self.bn2(out)
 
+        out = self.conv3(out)
+        out = self.relu3(out)
+        out = self.bn3(out)
+
         return out        
 
 class Midscope_Conv3d_Block(nn.Module):
-    def __init__(self,filters,size=3,padding='same',dilation_rate=1):
-        self.conv1 = nn.Conv3d(filters, filters, (3, 3, 3), padding='same',dilation_rate=1)
+    def __init__(self,in_filters,filters,size=3,dilation_rate=1):
+        super().__init__()
+        self.conv1 = Conv3dSame(in_filters, filters, (3, 3, 3), dilation=1)
         self.relu1 = nn.ReLU()
         self.bn1 = nn.BatchNorm3d(filters)
 
-        self.conv2 = nn.Conv3d(filters, filters, (3, 3, 3), padding='same', dilation_rate=2)
+        self.conv2 = Conv3dSame(filters, filters, (3, 3, 3),  dilation=2)
         self.relu2 = nn.ReLU()
         self.bn2 = nn.BatchNorm3d(filters)
 
@@ -111,16 +123,17 @@ class Midscope_Conv3d_Block(nn.Module):
         return out        
 
 class Widescope_Conv3d_Block(nn.Module):
-    def __init__(self,filters,size=3,padding='same',dilation_rate=1):
-        self.conv1 = nn.Conv3d(filters, filters, (3, 3, 3), padding='same',dilation_rate=1)
+    def __init__(self,in_filters,filters,size=3,dilation_rate=1):
+        super().__init__()
+        self.conv1 = Conv3dSame(in_filters, filters, (3, 3, 3), dilation=1)
         self.relu1 = nn.ReLU()
         self.bn1 = nn.BatchNorm3d(filters)
 
-        self.conv2 = nn.Conv3d(filters, filters, (3, 3, 3), padding='same', dilation_rate=2)
+        self.conv2 = Conv3dSame(filters, filters, (3, 3, 3),  dilation=2)
         self.relu2 = nn.ReLU()
         self.bn2 = nn.BatchNorm3d(filters)
 
-        self.conv3 = nn.Conv3d(filters, filters, (3, 3, 3), padding='same', dilation_rate=3)
+        self.conv3 = Conv3dSame(filters, filters, (3, 3, 3),  dilation=3)
         self.relu3 = nn.ReLU()
         self.bn3 = nn.BatchNorm3d(filters)
 
@@ -139,16 +152,17 @@ class Widescope_Conv3d_Block(nn.Module):
         return out        
 
 class Resnet_Conv3d_Block(nn.Module):
-    def __init__(self,filters,size=3,padding='same',dilation_rate=1):
-        self.conv_res = nn.Conv3d(filters, filters, (1, 1, 1), kernel_initializer=kernel_initializer, padding='same',
-               dilation_rate=dilation_rate)
+    def __init__(self,in_filters,filters,size=3,dilation_rate=1):
+        super().__init__()
+        self.conv_res = Conv3dSame(in_filters, filters, (1, 1, 1),  
+               dilation=dilation_rate)
         
-        self.conv1 = nn.Conv3d(filters, filters, (3, 3, 3), kernel_initializer=kernel_initializer, padding='same',
-               dilation_rate=dilation_rate)
+        self.conv1 = Conv3dSame(in_filters, filters, (3, 3, 3),
+               dilation=dilation_rate)
         self.relu1 = nn.ReLU()
         self.bn1 = nn.BatchNorm3d(filters)  
-        self.conv2 = nn.Conv3d(filters, filters, (3, 3, 3), kernel_initializer=kernel_initializer, padding='same',
-               dilation_rate=dilation_rate)
+        self.conv2 = Conv3dSame(filters, filters, (3, 3, 3), 
+               dilation=dilation_rate)
         self.relu2 = nn.ReLU()
         self.bn2 = nn.BatchNorm3d(filters)  
 
@@ -171,13 +185,14 @@ class Resnet_Conv3d_Block(nn.Module):
         return out        
 
 class DoubleConv_with_BatchNorm(nn.Module):
-    def __init__(self,filters,size=3,padding='same',dilation_rate=1):
-        self.conv1 = nn.Conv3d(filters, filters, (3, 3, 3), padding='same',
-               dilation_rate=dilation_rate)
+    def __init__(self,in_filters,filters,size=3,dilation_rate=1):
+        super().__init__()
+        self.conv1 = Conv3dSame(in_filters, filters, (3, 3, 3),
+               dilation=dilation_rate)
         self.relu1 = nn.ReLU()
         self.bn1 = nn.BatchNorm3d(filters)  
-        self.conv2 = nn.Conv3d(filters, filters, (3, 3, 3), padding='same',
-               dilation_rate=dilation_rate)
+        self.conv2 = Conv3dSame(filters, filters, (3, 3, 3),
+               dilation=dilation_rate)
         self.relu2 = nn.ReLU()
         self.bn2 = nn.BatchNorm3d(filters)  
 
@@ -192,113 +207,35 @@ class DoubleConv_with_BatchNorm(nn.Module):
         return out        
 
 
-# def conv_block_2D(x, filters, block_type, repeat=1, dilation_rate=1, size=3, padding='same'):
-#     result = x
-
-#     for i in range(0, repeat):
-
-#         if block_type == 'separated':
-#             result = separated_conv2D_block(result, filters, size=size, padding=padding)
-#         elif block_type == 'duckv2':
-#             result = duckv2_conv2D_block(result, filters, size=size)
-#         elif block_type == 'midscope':
-#             result = midscope_conv2D_block(result, filters)
-#         elif block_type == 'widescope':
-#             result = widescope_conv2D_block(result, filters)
-#         elif block_type == 'resnet':
-#             result = resnet_conv2D_block(result, filters, dilation_rate)
-#         elif block_type == 'conv':
-#             result = Conv2D(filters, (size, size),
-#                             activation='relu', kernel_initializer=kernel_initializer, padding=padding)(result)
-#         elif block_type == 'double_convolution':
-#             result = double_convolution_with_batch_normalization(result, filters, dilation_rate)
-
-#         else:
-#             return None
-#     return result
 
 
-# def duckv2_conv2D_block(x, filters, size):
-#     x = BatchNormalizationV2(axis=-1)(x)
-#     x1 = widescope_conv2D_block(x, filters)
+class Conv3dSame(torch.nn.Conv3d):
 
-#     x2 = midscope_conv2D_block(x, filters)
+    def calc_same_pad(self, i: int, k: int, s: int, d: int) -> int:
+        return max((math.ceil(i / s) - 1) * s + (k - 1) * d + 1 - i, 0)
 
-#     x3 = conv_block_2D(x, filters, 'resnet', repeat=1)
+    def forward(self, x: torch.Tensor) -> torch.Tensor:
+        ih, iw, id = x.size()[-3:]
 
-#     x4 = conv_block_2D(x, filters, 'resnet', repeat=2)
+        pad_h = self.calc_same_pad(i=ih, k=self.kernel_size[0], s=self.stride[0], d=self.dilation[0])
+        pad_w = self.calc_same_pad(i=iw, k=self.kernel_size[1], s=self.stride[1], d=self.dilation[1])
+        pad_d = self.calc_same_pad(i=id, k=self.kernel_size[2], s=self.stride[2], d=self.dilation[2])
 
-#     x5 = conv_block_2D(x, filters, 'resnet', repeat=3)
 
-#     x6 = separated_conv2D_block(x, filters, size=6, padding='same')
+        if pad_h > 0 or pad_w > 0 or pad_d > 0:
+            x = F.pad(
+                x, [pad_d // 2, pad_d - pad_d // 2,pad_w // 2, pad_w - pad_w // 2, pad_h // 2, pad_h - pad_h // 2]
+            )
+        return F.conv3d(
+            x,
+            self.weight,
+            self.bias,
+            self.stride,
+            self.padding,
+            self.dilation,
+            self.groups,
+        )
 
-#     x = add([x1, x2, x3, x4, x5, x6])
-
-#     x = BatchNormalizationV2(axis=-1)(x)
-
-#     return x
-
-# def separated_conv2D_block(x, filters, size=3, padding='same'):
-#     x = Conv2D(filters, (1, size), activation='relu', kernel_initializer=kernel_initializer, padding=padding)(x)
-
-#     x = BatchNormalizationV2(axis=-1)(x)
-
-#     x = Conv2D(filters, (size, 1), activation='relu', kernel_initializer=kernel_initializer, padding=padding)(x)
-
-#     x = BatchNormalizationV2(axis=-1)(x)
-
-#     return x
-
-# def midscope_conv2D_block(x, filters):
-#     x = Conv2D(filters, (3, 3), activation='relu', kernel_initializer=kernel_initializer, padding='same',
-#                dilation_rate=1)(x)
-
-#     x = BatchNormalizationV2(axis=-1)(x)
-
-#     x = Conv2D(filters, (3, 3), activation='relu', kernel_initializer=kernel_initializer, padding='same',
-#                dilation_rate=2)(x)
-
-#     x = BatchNormalizationV2(axis=-1)(x)
-
-#     return x
-
-# def widescope_conv2D_block(x, filters):
-#     x = Conv2D(filters, (3, 3), activation='relu', kernel_initializer=kernel_initializer, padding='same',
-#                dilation_rate=1)(x)
-
-#     x = BatchNormalizationV2(axis=-1)(x)
-
-#     x = Conv2D(filters, (3, 3), activation='relu', kernel_initializer=kernel_initializer, padding='same',
-#                dilation_rate=2)(x)
-
-#     x = BatchNormalizationV2(axis=-1)(x)
-
-#     x = Conv2D(filters, (3, 3), activation='relu', kernel_initializer=kernel_initializer, padding='same',
-#                dilation_rate=3)(x)
-
-#     x = BatchNormalizationV2(axis=-1)(x)
-
-#     return x
-
-# def resnet_conv2D_block(x, filters, dilation_rate=1):
-#     x1 = nn.Conv2d(filters, filters, (1, 1), activation='relu', padding='same',dilation_rate=dilation_rate)
-
-#     x = nn.Conv2d(filters, filters, (3, 3), activation='relu', padding='same',dilation_rate=dilation_rate)
-#     x = nn.BatchNorm3d(filters) 
-#     x = nn.Conv2d(filters, filters, (3, 3), activation='relu', padding='same',dilation_rate=dilation_rate)
-#     x = nn.BatchNorm3d(filters) 
-#     x_final = add([x, x1])
-
-#     x_final = nn.BatchNorm3d(filters) 
-
-#     return x_final
-
-# def double_convolution_with_batch_normalization(x, filters, dilation_rate=1):
-#     x = Conv2D(filters, (3, 3), activation='relu', kernel_initializer=kernel_initializer, padding='same',
-#                dilation_rate=dilation_rate)(x)
-#     x = BatchNormalizationV2(axis=-1)(x)
-#     x = Conv2D(filters, (3, 3), activation='relu', kernel_initializer=kernel_initializer, padding='same',
-#                dilation_rate=dilation_rate)(x)
-#     x = BatchNormalizationV2(axis=-1)(x)
-
-#     return x
+# conv_layer_s2_same = Conv3dSame(in_channels=3, out_channels=64, kernel_size=(7, 7, 7), stride=(2, 2, 2), groups=1, bias=True)
+# out = conv_layer_s2_same(torch.zeros(1, 3, 224, 224, 224))
+# print(out.shape)
