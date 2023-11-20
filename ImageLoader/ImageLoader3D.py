@@ -11,41 +11,74 @@ from tqdm import tqdm
 
 
 class ImageLoader3D(Dataset):
-    def __init__(self,paths,gt_paths,image_size =128,type_of_imgs = 'numpy', transform=None):
+    def __init__(self, paths, gt_paths, image_size=128, type_of_imgs = 'numpy', transform=None, clean=False, subtracted=False):
         self.paths = paths
         self.gt_paths = gt_paths
         self.transform = transform
         self.image_size = image_size
         self.type_of_imgs = type_of_imgs
+        self.clean = clean
+        self.subtracted=subtracted
 
     def __len__(self,):
         return len(self.paths)
-    def __getitem__(self,index):
+    
+    def __getitem__(self, index):
 
         if(self.type_of_imgs == 'nifty'):
             image = nib.load(self.paths[index]).get_fdata()
             gt = nib.load(self.gt_paths[index]).get_fdata()
+            if self.clean:
+                clean = np.copy(image)
+            if self.subtracted:
+                subtracted = np.copy(gt)
+
         elif(self.type_of_imgs == 'numpy'):
             full_f = np.load(self.paths[index])
             image = full_f['data']
             gt = full_f['label']
+            if self.clean:
+                clean = full_f['data_clean']
+            if self.subtracted:
+                subtracted = full_f['dilated_subtracted']
 
-        image,img_crop_para = self.tight_crop_data(image)
+        image, img_crop_para = self.tight_crop_data(image)
+        if self.clean:
+            clean = clean[img_crop_para[0]:img_crop_para[0] + img_crop_para[1], img_crop_para[2]:img_crop_para[2] + img_crop_para[3], img_crop_para[4]:img_crop_para[4] + img_crop_para[5]]
         gt = gt[img_crop_para[0]:img_crop_para[0] + img_crop_para[1], img_crop_para[2]:img_crop_para[2] + img_crop_para[3], img_crop_para[4]:img_crop_para[4] + img_crop_para[5]]
+        if self.subtracted:
+            subtracted = subtracted[img_crop_para[0]:img_crop_para[0] + img_crop_para[1], img_crop_para[2]:img_crop_para[2] + img_crop_para[3], img_crop_para[4]:img_crop_para[4] + img_crop_para[5]]
 
-        image = skiform.resize(image, (self.image_size, self.image_size, self.image_size), order = 1, preserve_range=True )
-        gt = skiform.resize(gt, (self.image_size, self.image_size, self.image_size), order = 0, preserve_range=True )
+        image = skiform.resize(image, (self.image_size, self.image_size, self.image_size), order = 1, preserve_range=True)
+        if self.clean:
+            clean = skiform.resize(clean, (self.image_size, self.image_size, self.image_size), order = 1, preserve_range=True)
+        gt = skiform.resize(gt, (self.image_size, self.image_size, self.image_size), order = 0, preserve_range=True)
         gt = gt > 0
+        if self.subtracted:
+            subtracted = skiform.resize(subtracted, (self.image_size, self.image_size, self.image_size), order = 0, preserve_range=True)
+            subtracted = subtracted > 0
 
         image -= np.min(image)
         image /= np.max(image)
 
-        image = np.expand_dims(image,-1)
-        gt = np.stack([gt==0,gt>0],-1)
+        if self.clean:
+            clean -= np.min(image)
+            clean /= np.max(image)
+
+        image = np.expand_dims(image, -1).astype(np.single)
+        if self.clean:
+            clean = np.expand_dims(clean, -1).astype(np.single)
+        gt = np.stack([gt==0, gt>0], -1).astype(np.single)
+        if self.subtracted:
+            subtracted = np.expand_dims(subtracted, -1).astype(np.single)
 
         data_dict = {}
         data_dict['input'] = image
         data_dict['gt'] = gt
+        if self.clean:
+            data_dict['clean'] = clean
+        if self.subtracted:
+            data_dict['subtracted'] = subtracted
 
         if(self.transform):
             data_dict = self.transform(data_dict)

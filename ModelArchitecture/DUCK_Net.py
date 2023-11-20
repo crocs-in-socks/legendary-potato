@@ -127,6 +127,7 @@ class DuckNet(nn.Module):
 
         return output
     
+import time
 class DuckNet_smaller(nn.Module):
     def __init__(self,input_channels, out_classes, starting_filters):
         super().__init__()
@@ -172,6 +173,7 @@ class DuckNet_smaller(nn.Module):
         
 
     def forward(self,x):
+
         out_p1 = self.p1(x)
         out_p2 = self.p2(out_p1)
         out_p3 = self.p3(out_p2)
@@ -188,9 +190,11 @@ class DuckNet_smaller(nn.Module):
 
         out_l3i = self.l3i(out_t2)
         s3 = out_l3i + out_p3
+        
         out_t31 = self.t31(s3)
         out_t33 = self.t33(out_t31)
-    
+
+
         out_l3o = self.l3o(out_t33)
         c2 = out_l3o + out_t2
         out_q6 = self.q6(c2)

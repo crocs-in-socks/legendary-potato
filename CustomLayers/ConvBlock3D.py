@@ -6,13 +6,26 @@ import torch.nn.functional as F
 kernel_initializer = 'he_uniform'
 
 class Gen_Conv3d_Block(nn.Module):
-    def __init__(self,in_filters,filters, block_type, dilation=1, size=3, repeat=1):
+
+    def __init__(self, in_filters, filters, block_type, dilation=1, size=3, repeat=1):
+
         super().__init__()
         self.block_type = block_type
         self.filters =  filters
-        self.block_dict = {'seperated':Seperated_Conv3d_Block, 'duck':Duck_Conv3d_Block, 'midscope': Midscope_Conv3d_Block, 
-                           'widescope':Widescope_Conv3d_Block, 'resnet':Resnet_Conv3d_Block,'double_convolution':DoubleConv_with_BatchNorm, 'conv':Conv3d_Block}
-        blocks = [self.block_dict[self.block_type](in_filters,filters,dilation,size)] + [self.block_dict[self.block_type](filters,filters,dilation,size) for i in range(repeat-1)]
+
+        self.block_dict = {
+            'seperated':Seperated_Conv3d_Block,
+            'duck':Duck_Conv3d_Block,
+            'midscope': Midscope_Conv3d_Block,
+            'widescope':Widescope_Conv3d_Block,
+            'resnet':Resnet_Conv3d_Block,
+            'double_convolution':DoubleConv_with_BatchNorm,
+            'conv':Conv3d_Block
+        }
+
+        blocks = [
+            self.block_dict[self.block_type](in_filters,filters,dilation,size)] + [self.block_dict[self.block_type](filters,filters,dilation,size) for i in range(repeat-1)
+        ]
         self.conv_block = nn.Sequential(*blocks)
 
     def forward(self,x):
