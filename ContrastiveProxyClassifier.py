@@ -241,8 +241,8 @@ for epoch in range(1, number_of_epochs+1):
         # input_diff = mixed * torch.cat([gt, gt])
         # input_diff = image - clean
 
-        # decoder_output = ResNet_decoder.forward(z_mixed[:current_batch_size])
-        decoder_output = ResNet_decoder.forward(z_mixed)
+        decoder_output = ResNet_decoder.forward(z_mixed[:current_batch_size])
+        # decoder_output = ResNet_decoder.forward(z_mixed)
 
         z_mixed = torch.reshape(z_mixed, shape=(z_mixed.shape[0], -1))
         y_mixed = classification_head.forward(z_mixed.detach())

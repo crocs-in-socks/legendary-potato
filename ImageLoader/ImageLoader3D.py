@@ -1,3 +1,4 @@
+import json
 import glob
 import torch
 from torch.utils.data import Dataset
@@ -8,12 +9,14 @@ import numpy as np
 from PIL import Image
 from skimage.io import imread
 from tqdm import tqdm
+import matplotlib.pyplot as plt
 
 
 class ImageLoader3D(Dataset):
-    def __init__(self, paths, gt_paths, image_size=128, type_of_imgs = 'numpy', transform=None, clean=False, subtracted=False):
+    def __init__(self, paths, gt_paths, json_paths=None, image_size=128, type_of_imgs = 'numpy', transform=None, clean=False, subtracted=False):
         self.paths = paths
         self.gt_paths = gt_paths
+        self.json_paths = json_paths
         self.transform = transform
         self.image_size = image_size
         self.type_of_imgs = type_of_imgs
@@ -32,6 +35,10 @@ class ImageLoader3D(Dataset):
                 clean = np.copy(image)
             if self.subtracted:
                 subtracted = np.copy(gt)
+            if self.json_paths:
+                with open(self.json_paths[index], 'r') as file:
+                    metadata = json.load(file)
+                file.close()
 
         elif(self.type_of_imgs == 'numpy'):
             full_f = np.load(self.paths[index])
@@ -41,6 +48,10 @@ class ImageLoader3D(Dataset):
                 clean = full_f['data_clean']
             if self.subtracted:
                 subtracted = full_f['dilated_subtracted']
+            if self.json_paths:
+                with open(self.json_paths[index], 'r') as file:
+                    metadata = json.load(file)
+                file.close()
 
         image, img_crop_para = self.tight_crop_data(image)
         if self.clean:
@@ -62,8 +73,14 @@ class ImageLoader3D(Dataset):
         image /= np.max(image)
 
         if self.clean:
-            clean -= np.min(image)
-            clean /= np.max(image)
+            masked_image = image * ~gt
+
+            masked_min = np.min(masked_image)
+            masked_max = np.max(masked_image)
+            clean_min = np.min(clean)
+            clean_max = np.max(clean)
+
+            clean = ((clean - clean_min) / (clean_max - clean_min)) * (masked_max - masked_min) + masked_min
 
         image = np.expand_dims(image, -1).astype(np.single)
         if self.clean:
@@ -73,15 +90,33 @@ class ImageLoader3D(Dataset):
             subtracted = np.expand_dims(subtracted, -1).astype(np.single)
 
         data_dict = {}
+        
         data_dict['input'] = image
         data_dict['gt'] = gt
+
         if self.clean:
             data_dict['clean'] = clean
         if self.subtracted:
             data_dict['subtracted'] = subtracted
 
-        if(self.transform):
+        if self.transform:
             data_dict = self.transform(data_dict)
+
+        data_dict['lesion_labels'] = torch.tensor([1, 0, 0, 0, 0])
+        if self.json_paths:
+            for lesion_idx in range(metadata['num_lesions']):
+                if metadata[f'{lesion_idx}_semi_axes_range'] == [2, 5]:
+                    data_dict['lesion_labels'][0] = 0
+                    data_dict['lesion_labels'][1] = 1
+                if metadata[f'{lesion_idx}_semi_axes_range'] == [3, 5]:
+                    data_dict['lesion_labels'][0] = 0
+                    data_dict['lesion_labels'][2] = 1
+                if metadata[f'{lesion_idx}_semi_axes_range'] == [5, 10]:
+                    data_dict['lesion_labels'][0] = 0
+                    data_dict['lesion_labels'][3] = 1
+                if metadata[f'{lesion_idx}_semi_axes_range'] == [10, 15]:
+                    data_dict['lesion_labels'][0] = 0
+                    data_dict['lesion_labels'][4] = 1
         
         return data_dict
     

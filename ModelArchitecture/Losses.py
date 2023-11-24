@@ -97,7 +97,7 @@ class VoxelwiseSupConLoss_inImage(nn.Module):
         self.temperature = temperature
         self.struct_element = np.ones((5, 5, 5), dtype=bool)
         self.device = device
-        self.max_pixels = 10500
+        self.max_pixels = 18000
     
     def forward(self, Zs, pixel_mask, subtracted_mask):
 
@@ -111,8 +111,11 @@ class VoxelwiseSupConLoss_inImage(nn.Module):
         if positive_pixels.shape[0] > self.max_pixels:
             random_indices = torch.randperm(positive_pixels.size(0))[:self.max_pixels]
             positive_pixels = positive_pixels[random_indices]
-
-        if negative_pixels.shape[0] > self.max_pixels:
+        
+        if positive_pixels.shape[0] < negative_pixels.shape[0]:
+            random_indices = torch.randperm(negative_pixels.size(0))[:positive_pixels.shape[0]]
+            negative_pixels = negative_pixels[random_indices]
+        elif negative_pixels.shape[0] > self.max_pixels:
             random_indices = torch.randperm(negative_pixels.size(0))[:self.max_pixels]
             negative_pixels = negative_pixels[random_indices]
 
@@ -139,6 +142,7 @@ class VoxelwiseSupConLoss_inImage(nn.Module):
         denominator = torch.sum(negative_mask, dim=1) - torch.diagonal(exp)
         full_term = torch.log(positive_mask) - torch.log(denominator)
         loss = -(1 / len(labels)) * torch.sum(full_term)
+        # loss = -torch.sum(full_term)
         
         return loss
 
@@ -208,6 +212,13 @@ def determine_accuracy_metrics(pred, target):
 
     recall = true_positives / (true_positives + false_negatives)
     precision = true_positives / (true_positives + false_positives)
+    
+    # print()
+    # print(true_positives)
+    # print(true_negatives)
+    # print(false_positives)
+    # print(false_negatives)
+    # print()
 
     return recall, precision, true_positives, true_negatives, false_positives, false_negatives
 

@@ -128,18 +128,18 @@ class ResNet3D_Encoder(nn.Module):
         out3 = self.layer3(out2)
         out4 = self.layer4(out3)
 
-        # out_dict = {
-        #         'x': x,
-        #         'out': out,
-        #         'out1': out1,
-        #         'out2': out2,
-        #         'out3': out3,
-        #         'out4': out4
-        # }
+        out_dict = {
+                'x': x,
+                'out': out,
+                'out1': out1,
+                'out2': out2,
+                'out3': out3,
+                'out4': out4
+        }
 
-        # return out_dict
+        return out_dict
         # return out3
-        return out4
+        # return out4
 
 class VGG3D(nn.Module):
 
@@ -293,6 +293,21 @@ class Classifier(nn.Module):
     def forward(self, x):
         out = self.fc(x)
         out = self.activation(out)
+        return out
+    
+class Projector(nn.Module):
+    def __init__(self, num_layers, layer_sizes):
+        super().__init__()
+        self.num_layers = num_layers
+        self.projection_heads = nn.ModuleList([nn.Conv3d(layer_sizes[idx], 1, kernel_size=1) for idx in range(num_layers)])
+        self.super_projection_head = nn.Conv3d(num_layers, 1, kernel_size=1)
+    
+    def forward(self, x):
+        out = [self.projection_heads[idx](x[idx]) for idx in range(self.num_layers)]
+        ll = out[0].shape[-1]
+        out = [F.interpolate(out[idx], size=(ll, ll, ll), mode='trilinear') for idx in range(self.num_layers)]
+        out = torch.cat(out, dim=1)
+        out = self.super_projection_head(out)
         return out
 
 class WideResNet3D_BasicBlock(nn.Module):

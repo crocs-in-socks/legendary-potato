@@ -1,6 +1,5 @@
 import torch
 import torch.nn as nn
-import torch.optim as optim
 from torchvision import transforms
 import torch.nn.functional as F
 from torch.utils.data import DataLoader, ConcatDataset
@@ -12,7 +11,6 @@ from ModelArchitecture.Transformations import *
 from ModelArchitecture.Losses import *
 
 import glob
-import numpy as np
 from tqdm import tqdm
 import matplotlib.pyplot as plt
 from einops import rearrange
@@ -23,7 +21,7 @@ device = 'cuda:1'
 model_type = 'ResNetClassifier'
 date = '08_11_2023'
 
-model_path = '/mnt/fd67a3c7-ac13-4329-bdbb-bdad39a33bf1/LabData/models_retrained/experiments/Nov09/'
+model_path = '/mnt/fd67a3c7-ac13-4329-bdbb-bdad39a33bf1/LabData/models_retrained/experiments/Nov22/'
 
 trainset_paths = sorted(glob.glob('/mnt/fd67a3c7-ac13-4329-bdbb-bdad39a33bf1/Gouri/TrainSet_5_11_23/*.npz'))
 validationset_paths = sorted(glob.glob('/mnt/fd67a3c7-ac13-4329-bdbb-bdad39a33bf1/Gouri/ValidSet_5_11_23/*.npz'))
@@ -31,6 +29,10 @@ testset_paths = sorted(glob.glob('/mnt/fd67a3c7-ac13-4329-bdbb-bdad39a33bf1/Gour
 print(f'Trainset size: {len(trainset_paths)}')
 print(f'Validationset size: {len(validationset_paths)}')
 print(f'Testset size: {len(testset_paths)}')
+
+clean_data = sorted(glob.glob('/mnt/fd67a3c7-ac13-4329-bdbb-bdad39a33bf1/LabData/NIMH/3d/*.anat*/*fast_restore.nii.gz*'))
+clean_labels = sorted(glob.glob('/mnt/fd67a3c7-ac13-4329-bdbb-bdad39a33bf1/LabData/NIMH/3d/*.anat*/*seg_label.nii.gz*'))
+clean_masks = sorted(glob.glob('/mnt/fd67a3c7-ac13-4329-bdbb-bdad39a33bf1/LabData/NIMH/3d/*.anat*/*biascorr_brain_mask.nii.gz*'))
 
 composed_transform = transforms.Compose([
         ToTensor3D(True, clean=True)
@@ -40,16 +42,18 @@ trainset = ImageLoader3D(paths=trainset_paths, gt_paths=None, image_size=128, ty
 validationset = ImageLoader3D(paths=validationset_paths, gt_paths=None, image_size=128, type_of_imgs='numpy', transform=composed_transform, clean=True)
 testset = ImageLoader3D(paths=testset_paths, gt_paths=None, image_size=128, type_of_imgs='numpy', transform=composed_transform, clean=True)
 
-allset = ConcatDataset([trainset, validationset, testset])
+clean_set = ImageLoader3D(paths=clean_data, gt_paths=clean_labels, type_of_imgs='nifty', transform=composed_transform, clean=True)
 
-ResNet_Model = ResNet3D_Encoder(image_channels=1).to(device)
-projection_head = nn.Conv3d(960, 1, kernel_size=1).to(device)
+allset = ConcatDataset([trainset, validationset, testset, clean_set])
+
+ResNet_encoder= ResNet3D_Encoder(image_channels=1).to(device)
+# projection_head = nn.Conv3d(960, 1, kernel_size=1).to(device)
 # projection_head = nn.Conv3d(512, 1, kernel_size=1).to(device)
 
 ResNet_allloader = DataLoader(allset, batch_size=batch_size, shuffle=True, num_workers=0)
 
-ResNet_Model.load_state_dict(torch.load(f'{model_path}Contrastive_ResNet_StackedOnlyAnomalous_wNIMH_09_11_2023_ResNet_state_dict101.pth'))
-projection_head.load_state_dict(torch.load(f'{model_path}Contrastive_ProjectionHead_StackedOnlyAnomalous_wNIMH_09_11_2023_ProjectorHead_state_dict101.pth'))
+ResNet_encoder.load_state_dict(torch.load(f'{model_path}Multiclasspretrained_ResNet_Encoder_22_11_2023_state_dict75.pth'))
+# projection_head.load_state_dict(torch.load(f'{model_path}Contrastive_ProjectionHead_StackedOnlyAnomalous_wNIMH_09_11_2023_ProjectorHead_state_dict101.pth'))
 
 for i in tqdm(range(len(allset))):
 
@@ -69,7 +73,7 @@ for i in tqdm(range(len(allset))):
     # input_diff_with_label = sample_input * sample_label
     # input_diff_without_label = sample_input - sample_clean
 
-    out_dict = ResNet_Model(sample_mixed)
+    out_dict = ResNet_encoder(sample_mixed)
     layer1 = out_dict['out1']
     layer2 = out_dict['out2']
     layer3 = out_dict['out3']
@@ -133,7 +137,8 @@ for i in tqdm(range(len(allset))):
     feature_diff = stacked_layers[0]
     # feature_diff  = feature_diff.unsqueeze(0)
 
-    conv_output = projection_head.forward(feature_diff)
+    conv_output = torch.mean(feature_diff, dim=0, keepdim=True)
+    # conv_output = projection_head.forward(feature_diff)
     conv_output = conv_output.unsqueeze(0)
     conv_output = F.interpolate(conv_output, size=(128, 128, 128), mode='trilinear')
 
@@ -159,7 +164,7 @@ for i in tqdm(range(len(allset))):
     plt.figure(figsize=(15, 5))
     plt.subplot(1, 3, 1)
     plt.imshow(conv_output[0, 0, :, :, 64].detach().cpu(), cmap='gray', vmin=0, vmax=1)
-    plt.title(f'conv_output anomalous sample #{i+1}')
+    plt.title(f'projection_output anomalous sample #{i+1}')
     plt.subplot(1, 3, 2)
     plt.imshow(input_diff[0, 0, :, :, 64].detach().cpu(), cmap='gray', vmin=0, vmax=1)
     plt.title(f'input_diff anomalous sample #{i+1}')

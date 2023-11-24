@@ -15,7 +15,8 @@ print(f'Anomalous Testset size: {len(anomalous_testset_paths)}')
 
 allset = anomalous_trainset_paths + anomalous_validationset_paths + anomalous_testset_paths
 
-struct_element = np.ones((3, 3, 3), dtype=bool)
+outer_struct_element = np.ones((7, 7, 7), dtype=bool)
+inner_struct_element = np.ones((3, 3, 3), dtype=bool)
 
 for idx, path in tqdm(enumerate(allset)):
     full_f = dict(np.load(path))
@@ -23,8 +24,9 @@ for idx, path in tqdm(enumerate(allset)):
     clean = full_f['data_clean']
     gt = full_f['label']
 
-    dilated_gt = torch.from_numpy(binary_dilation(gt, struct_element)).int()
-    subtracted_gt = dilated_gt - gt
+    outer_dilated_gt = torch.from_numpy(binary_dilation(gt, outer_struct_element)).int()
+    inner_dilated_gt = torch.from_numpy(binary_dilation(gt, inner_struct_element)).int()
+    subtracted_gt = outer_dilated_gt - inner_dilated_gt
 
     plt.figure(figsize=(10, 5))
     plt.subplot(1, 3, 1)

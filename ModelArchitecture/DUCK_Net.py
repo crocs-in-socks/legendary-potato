@@ -125,7 +125,7 @@ class DuckNet(nn.Module):
         output = self.output(out_z1)
         output = self.acti(output)
 
-        return output
+        return output, out_t53
     
 import time
 class DuckNet_smaller(nn.Module):
