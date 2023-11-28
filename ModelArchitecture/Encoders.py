@@ -265,6 +265,8 @@ class Classifier(nn.Module):
     def __init__(self, input_channels, output_channels):
         super().__init__()
 
+        self.pooler = nn.AdaptiveAvgPool3d((2, 2, 2))
+
         self.layer1 = nn.Sequential(
             nn.Linear(input_channels, input_channels // 4),
             nn.ReLU(inplace=True)
@@ -291,7 +293,10 @@ class Classifier(nn.Module):
         self.activation = nn.Sigmoid()
     
     def forward(self, x):
-        out = self.fc(x)
+
+        out = self.pooler(x)
+        out = torch.reshape(out, shape=(out.shape[0], -1))
+        out = self.fc(out)
         out = self.activation(out)
         return out
     

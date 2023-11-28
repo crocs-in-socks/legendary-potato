@@ -103,7 +103,8 @@ class VoxelwiseSupConLoss_inImage(nn.Module):
 
         number_of_features = Zs.shape[1]
         positive_mask = (pixel_mask[:, 1] == 1).squeeze(0)
-        negative_mask = (subtracted_mask == 1).squeeze(0, 1)
+        # negative_mask = (subtracted_mask == 1).squeeze(0, 1)
+        negative_mask = (pixel_mask[:, 0] == 1).squeeze(0)
 
         positive_pixels = Zs[:, :, positive_mask].permute(0, 2, 1).reshape(-1, number_of_features)
         negative_pixels = Zs[:, :,negative_mask].permute(0, 2, 1).reshape(-1, number_of_features)
