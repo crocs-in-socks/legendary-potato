@@ -97,37 +97,36 @@ class VoxelwiseSupConLoss_inImage(nn.Module):
         self.temperature = temperature
         self.struct_element = np.ones((5, 5, 5), dtype=bool)
         self.device = device
-        self.max_pixels = 18000
+        self.max_pixels = 10500
     
-    def forward(self, Zs, pixel_mask, subtracted_mask):
+    def forward(self, Zs, pixel_mask, subtracted_mask=None):
 
         number_of_features = Zs.shape[1]
         positive_mask = (pixel_mask[:, 1] == 1).squeeze(0)
-        # negative_mask = (subtracted_mask == 1).squeeze(0, 1)
-        negative_mask = (pixel_mask[:, 0] == 1).squeeze(0)
+
+        if subtracted_mask:
+            negative_mask = (subtracted_mask == 1).squeeze(0, 1)
+        else:
+            negative_mask = (pixel_mask[:, 0] == 1).squeeze(0)
 
         positive_pixels = Zs[:, :, positive_mask].permute(0, 2, 1).reshape(-1, number_of_features)
         negative_pixels = Zs[:, :,negative_mask].permute(0, 2, 1).reshape(-1, number_of_features)
 
         if positive_pixels.shape[0] > self.max_pixels:
-            random_indices = torch.randperm(positive_pixels.size(0))[:self.max_pixels]
+            random_indices = torch.randint(0, positive_pixels.size(0), size=(self.max_pixels,))
             positive_pixels = positive_pixels[random_indices]
         
         if positive_pixels.shape[0] < negative_pixels.shape[0]:
-            random_indices = torch.randperm(negative_pixels.size(0))[:positive_pixels.shape[0]]
+            random_indices = torch.randint(0, negative_pixels.size(0), size=(positive_pixels.shape[0],))
             negative_pixels = negative_pixels[random_indices]
         elif negative_pixels.shape[0] > self.max_pixels:
-            random_indices = torch.randperm(negative_pixels.size(0))[:self.max_pixels]
+            random_indices = torch.randint(0, negative_pixels.size(0), size=(self.max_pixels,))
             negative_pixels = negative_pixels[random_indices]
 
         pixels = torch.cat([positive_pixels, negative_pixels])
         labels = torch.tensor([1] * positive_pixels.shape[0] + [0] * negative_pixels.shape[0]).to(self.device)
 
         pixels = F.normalize(pixels)
-        # pixels = torch.matmul(pixels, pixels.T)
-        # pixels = torch.div(pixels, self.temperature)
-        # pixels = F.normalize(pixels)
-        # exp = torch.exp(pixels)
         dot = torch.matmul(pixels, pixels.T)
         dot = torch.div(dot, self.temperature)
         dot = F.normalize(dot)
@@ -138,12 +137,12 @@ class VoxelwiseSupConLoss_inImage(nn.Module):
 
         positive_mask = exp * class_mask
         positive_mask[positive_mask == 0] = 1
+        # positive_mask = exp * class_mask + (~class_mask).float()
         negative_mask = exp * (~class_mask)
 
         denominator = torch.sum(negative_mask, dim=1) - torch.diagonal(exp)
         full_term = torch.log(positive_mask) - torch.log(denominator)
         loss = -(1 / len(labels)) * torch.sum(full_term)
-        # loss = -torch.sum(full_term)
         
         return loss
 

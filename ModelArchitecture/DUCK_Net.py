@@ -102,30 +102,41 @@ class DuckNet(nn.Module):
         out_t51 = self.t51(s5)
         out_t53 = self.t53(out_t51)
 
-        out_l5o = self.l5o(out_t53)
-        c4 = out_l5o + out_t4
-        out_q4 = self.q4(c4)
+        # out_l5o = self.l5o(out_t53)
+        # c4 = out_l5o + out_t4
+        # out_q4 = self.q4(c4)
 
-        out_l4o = self.l4o(out_q4)
-        c3 = out_l4o + out_t3
-        out_q3 = self.q3(c3)
+        # out_l4o = self.l4o(out_q4)
+        # c3 = out_l4o + out_t3
+        # out_q3 = self.q3(c3)
     
-        out_l3o = self.l3o(out_q3)
-        c2 = out_l3o + out_t2
-        out_q6 = self.q6(c2)
+        # out_l3o = self.l3o(out_q3)
+        # c2 = out_l3o + out_t2
+        # out_q6 = self.q6(c2)
 
-        out_l2o = self.l2o(out_q6)
-        c1 = out_l2o + out_t1
-        out_q1 = self.q1(c1)
+        # out_l2o = self.l2o(out_q6)
+        # c1 = out_l2o + out_t1
+        # out_q1 = self.q1(c1)
 
-        out_l1o = self.l1o(out_q1)
-        c0 = out_l1o + out_t0
-        out_z1 = self.z1(c0)
+        # out_l1o = self.l1o(out_q1)
+        # c0 = out_l1o + out_t0
+        # out_z1 = self.z1(c0)
         
-        output = self.output(out_z1)
-        output = self.acti(output)
+        # output = self.output(out_z1)
+        # output = self.acti(output)
 
-        return output, out_t53
+        final_out = out_t53
+
+        layer_out_list = [
+            out_t0,
+            out_t1,
+            out_t2,
+            out_t3,
+            out_t4
+        ]
+
+        return layer_out_list, final_out
+        # return output
     
 import time
 class DuckNet_smaller(nn.Module):

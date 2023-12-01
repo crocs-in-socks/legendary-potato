@@ -137,9 +137,23 @@ class ResNet3D_Encoder(nn.Module):
                 'out4': out4
         }
 
-        return out_dict
+        layer_list = [
+            out1,
+            out2,
+            out3,
+            out4
+        ]
+
+        final_out = out4
+
+        return layer_list, final_out
         # return out3
         # return out4
+
+class UNet3D_Encoder(nn.Module):
+
+    def __init__(self, input_channels, output_channels):
+        super().__init__()
 
 class VGG3D(nn.Module):
 
@@ -238,8 +252,8 @@ class VGG3D(nn.Module):
         self.encoder.add_module('enc-layer3', self.enc_layer3) # 64 -> 128
         self.encoder.add_module('enc-layer4', self.enc_layer4) # 128 -> 128
         self.encoder.add_module('enc-layer5', self.enc_layer5) # 128 -> 256
-        self.encoder.add_module('enc-layer6', self.enc_layer6) # 256 -> 256
-        self.encoder.add_module('enc-layer7', self.enc_layer7) # 256 -> 256
+        # self.encoder.add_module('enc-layer6', self.enc_layer6) # 256 -> 256
+        # self.encoder.add_module('enc-layer7', self.enc_layer7) # 256 -> 256
 
         # self.encoder.add_module('enc-layer8', self.enc_layer8) # 256 -> 512
         # self.encoder.add_module('enc-layer9', self.enc_layer9) # 512 -> 512
@@ -262,10 +276,10 @@ class VGG3D(nn.Module):
 
 class Classifier(nn.Module):
 
-    def __init__(self, input_channels, output_channels):
+    def __init__(self, input_channels, output_channels, pooling_size=2):
         super().__init__()
 
-        self.pooler = nn.AdaptiveAvgPool3d((2, 2, 2))
+        self.pooler = nn.AdaptiveAvgPool3d((pooling_size, pooling_size, pooling_size))
 
         self.layer1 = nn.Sequential(
             nn.Linear(input_channels, input_channels // 4),
@@ -313,6 +327,24 @@ class Projector(nn.Module):
         out = [F.interpolate(out[idx], size=(ll, ll, ll), mode='trilinear') for idx in range(self.num_layers)]
         out = torch.cat(out, dim=1)
         out = self.super_projection_head(out)
+        return out
+    
+class Decoder(nn.Module):
+    def __init__(self):
+        super().__init__()
+        self.up1 = nn.ConvTranspose3d(272, 136, kernel_size=2, stride=2)
+        self.up2 = nn.ConvTranspose3d(136, 68, kernel_size=2, stride=2)
+        self.up3 = nn.ConvTranspose3d(68, 34, kernel_size=2, stride=2)
+        self.up4 = nn.ConvTranspose3d(34, 17, kernel_size=2, stride=2)
+        self.up5 = nn.ConvTranspose3d(17, 1, kernel_size=2, stride=2)
+    
+    def forward(self, x):
+        out = self.up1(x)
+        out = self.up2(out)
+        out = self.up3(out)
+        out = self.up4(out)
+        out = self.up5(out)
+        
         return out
 
 class WideResNet3D_BasicBlock(nn.Module):
