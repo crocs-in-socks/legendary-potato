@@ -99,13 +99,15 @@ class VoxelwiseSupConLoss_inImage(nn.Module):
         self.device = device
         self.max_pixels = 10500
     
-    def forward(self, Zs, pixel_mask, subtracted_mask=None):
+    def forward(self, Zs, pixel_mask, subtracted_mask=None, brain_mask=None):
 
         number_of_features = Zs.shape[1]
         positive_mask = (pixel_mask[:, 1] == 1).squeeze(0)
 
-        if subtracted_mask:
+        if subtracted_mask is not None:
             negative_mask = (subtracted_mask == 1).squeeze(0, 1)
+        elif brain_mask is not None:
+            negative_mask = torch.logical_and(brain_mask[:, 0] == 1, pixel_mask[:, 0] == 1).squeeze(0)
         else:
             negative_mask = (pixel_mask[:, 0] == 1).squeeze(0)
 
@@ -199,6 +201,16 @@ def determine_class_accuracy(pred, target):
     true_pos = torch.sum(correct_cases)
 
     accuracy = true_pos/pred_vect.shape[0]
+    return accuracy
+
+def determine_multiclass_accuracy(pred, target):
+    pred_vect = (pred > 0.5).float()
+    target_vect = (target > 0.5).float()
+
+    correct_cases = (pred_vect == target_vect)
+    true_pos = torch.sum(correct_cases)
+
+    accuracy = true_pos/(pred_vect.shape[0] * pred_vect.shape[1])
     return accuracy
 
 def determine_accuracy_metrics(pred, target):

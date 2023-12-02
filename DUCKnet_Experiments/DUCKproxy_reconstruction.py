@@ -66,7 +66,7 @@ DUCKnet_encoder.load_state_dict(torch.load(DUCKmodel_path))
 
 projection_head = Projector(num_layers=5, layer_sizes=[17, 34, 68, 136, 272]).to(device)
 
-reconstruction_head = Decoder().to(device)
+reconstruction_head = DUCKproxy_Decoder().to(device)
 
 # Freezing DUCKnet
 # for param in DUCKnet_encoder.parameters():

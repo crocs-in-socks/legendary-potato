@@ -20,17 +20,17 @@ import matplotlib.pyplot as plt
 batch_size = 1
 patience = 15
 num_workers = 16
-device = 'cuda:0'
+device = 'cuda:1'
 number_of_epochs = 100
-date = '29_11_2023'
+date = '01_12_2023'
 encoder_type = 'DUCK_WMHfrozen_proxy_encoder_simFinetuned'
 classifier_type = 'DUCK_WMHfrozen_proxy_classifier_simFinetuned'
 projector_type = 'DUCK_WMHfrozen_proxy_projector_simFinetuned'
 
 save_model_path = '/mnt/fd67a3c7-ac13-4329-bdbb-bdad39a33bf1/LabData/models_retrained/experiments/Nov29/'
 DUCKmodel_path = '/mnt/fd67a3c7-ac13-4329-bdbb-bdad39a33bf1/Gouri/Duck1wmh_focal + dice_state_dict_best_loss97.pth'
-encoder_path = '/mnt/fd67a3c7-ac13-4329-bdbb-bdad39a33bf1/LabData/models_retrained/experiments/Nov30/DUCK_WMH_proxy_encoder_simFinetuned_weightedBCE_30_11_2023_state_dict_best_loss10.pth'
-Projector_model_path = '/mnt/fd67a3c7-ac13-4329-bdbb-bdad39a33bf1/LabData/models_retrained/experiments/Nov30/DUCK_WMH_proxy_projector_simFinetuned_weightedBCE_30_11_2023_state_dict_best_loss10.pth'
+encoder_model_path = '/mnt/fd67a3c7-ac13-4329-bdbb-bdad39a33bf1/LabData/models_retrained/experiments/Dec01/VGGproxy_encoder_simFinetuned_weightedBCE_negativeRing_01_12_2023_state_dict100.pth'
+projector_model_path = '/mnt/fd67a3c7-ac13-4329-bdbb-bdad39a33bf1/LabData/models_retrained/experiments/Dec01/VGGproxy_projector_simFinetuned_weightedBCE_negativeRing_01_12_2023_state_dict100.pth'
 
 from_Sim1000_data_paths = sorted(glob.glob('/mnt/fd67a3c7-ac13-4329-bdbb-bdad39a33bf1/Gouri/simulation_data/Sim1000/Dark/all/**/*FLAIR.nii.gz'))
 from_sim2211_data_paths = sorted(glob.glob('/mnt/fd67a3c7-ac13-4329-bdbb-bdad39a33bf1/Gouri/simulation_data/Full_sim_22_11_23/Dark/**/**/*FLAIR.nii.gz'))
@@ -66,18 +66,20 @@ trainset, validationset = random_split(fullset, (train_size, validation_size))
 trainloader = DataLoader(trainset, batch_size=batch_size, shuffle=False, num_workers=num_workers)
 validationloader = DataLoader(validationset, batch_size=batch_size, shuffle=False, num_workers=num_workers)
 
-DUCKnet_encoder = DuckNet(input_channels=1, out_classes=2, starting_filters=17).to(device)
-# DUCKnet_encoder = ResNet3D_Encoder(image_channels=1).to(device)
-DUCKnet_encoder.load_state_dict(torch.load(DUCKmodel_path))
+# encoder = DuckNet(input_channels=1, out_classes=2, starting_filters=17).to(device)
+# encoder = ResNet3D_Encoder(image_channels=1).to(device)
+encoder = VGG3D_Encoder(input_channels=1).to(device)
+encoder.load_state_dict(torch.load(encoder_model_path))
 
 # classification_head = Classifier(input_channels=17408, output_channels=5).to(device)
 # classification_head = Classifier(input_channels=2176, output_channels=5).to(device)
 
-projection_head = Projector(num_layers=5, layer_sizes=[17, 34, 68, 136, 272]).to(device)
+# projection_head = Projector(num_layers=5, layer_sizes=[17, 34, 68, 136, 272]).to(device)
 # projection_head = Projector(num_layers=4, layer_sizes=[64, 128, 256, 512]).to(device)
-projection_head.load_state_dict(torch.load(Projector_model_path))
+projection_head = Projector(num_layers=5, layer_sizes=[32, 64, 128, 256, 512]).to(device)
+projection_head.load_state_dict(torch.load(projector_model_path))
 
-DUCKnet_encoder.eval()
+encoder.eval()
 projection_head.eval()
 
 for idx, data in enumerate(tqdm(validationloader), 0):
@@ -85,7 +87,7 @@ for idx, data in enumerate(tqdm(validationloader), 0):
     gt = data['gt'].to(device)
     oneHot_label = data['lesion_labels'].float().to(device)
 
-    to_projector, to_classifier = DUCKnet_encoder(image)
+    to_projector, to_classifier = encoder(image)
 
     if torch.unique(gt[:, 1]).shape[0] == 2:
         projection = projection_head(to_projector)

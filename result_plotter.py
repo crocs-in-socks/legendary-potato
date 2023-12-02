@@ -1,7 +1,7 @@
 import numpy as np
 import matplotlib.pyplot as plt
 
-data = np.load('./results/ResNetproxy_classifier_simFinetuned_weightedBCE_30_11_2023_accuracies.npy')
+data = np.load('./results/VGGproxy_classifier_weightedBCEpretrain_01_12_2023_accuracies.npy')
 print(data.shape)
 train_loss = data[0]
 validation_loss = data[1]

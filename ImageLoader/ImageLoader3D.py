@@ -4,6 +4,7 @@ import torch
 from torch.utils.data import Dataset
 import nibabel as nib
 import skimage.transform as skiform
+from skimage.morphology import binary_dilation
 
 import numpy as np
 from PIL import Image
@@ -13,7 +14,7 @@ import matplotlib.pyplot as plt
 
 
 class ImageLoader3D(Dataset):
-    def __init__(self, paths, gt_paths, json_paths=None, image_size=128, type_of_imgs = 'numpy', transform=None, clean=False, subtracted=False):
+    def __init__(self, paths, gt_paths, json_paths=None, image_size=128, type_of_imgs = 'numpy', transform=None, clean=False, subtracted=False, is_clean=False):
         self.paths = paths
         self.gt_paths = gt_paths
         self.json_paths = json_paths
@@ -22,6 +23,7 @@ class ImageLoader3D(Dataset):
         self.type_of_imgs = type_of_imgs
         self.clean = clean
         self.subtracted=subtracted
+        self.is_clean = is_clean
 
     def __len__(self,):
         return len(self.paths)
@@ -34,7 +36,14 @@ class ImageLoader3D(Dataset):
             if self.clean:
                 clean = np.copy(image)
             if self.subtracted:
-                subtracted = np.copy(gt)
+                if self.is_clean:
+                    subtracted = np.copy(gt)
+                else:
+                    outer_struct_element = np.ones((7, 7, 7), dtype=bool)
+                    inner_struct_element = np.ones((3, 3, 3), dtype=bool)
+                    outer_dilated_gt = binary_dilation(gt, outer_struct_element).astype(int)
+                    inner_dilated_gt = binary_dilation(gt, inner_struct_element).astype(int)
+                    subtracted = outer_dilated_gt - inner_dilated_gt
             if self.json_paths:
                 with open(self.json_paths[index], 'r') as file:
                     metadata = json.load(file)

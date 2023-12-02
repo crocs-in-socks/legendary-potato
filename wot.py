@@ -28,7 +28,7 @@ projector_params = sum(p.numel() for p in projector_model.parameters() if p.requ
 
 print(f'DUCK: {DUCK_params/1000000}M\tResNet18: {ResNet18_params/1000000}M\t Projec')
 
-def determine_class_accuracy(pred, target):
+def determine_multiclass_accuracy(pred, target):
     pred_vect = (pred > 0.5).float()
     target_vect = (target > 0.5).float()
 
@@ -44,5 +44,5 @@ def determine_class_accuracy(pred, target):
 out = torch.tensor([[0.6, 0.8, 0, 0, 0.4]]).float()
 label = torch.tensor([[1, 0, 0, 0, 1]]).float()
 
-accuracy = determine_class_accuracy(out, label)
+accuracy = determine_multiclass_accuracy(out, label)
 print(f'Accuracy: {accuracy}')
