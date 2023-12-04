@@ -16,22 +16,20 @@ import glob
 import numpy as np
 from tqdm import tqdm
 
+### Constants
 batch_size = 1
 patience = 15
 num_workers = 16
-device = 'cuda:1'
+device = 'cuda:0'
 number_of_epochs = 100
-date = '30_11_2023'
-encoder_type = 'DUCK_WMH_proxy_encoder_simFinetuned_weightedBCE'
-classifier_type = 'DUCK_WMH_proxy_classifier_simFinetuned_weightedBCE'
-projector_type = 'DUCK_WMH_proxy_projector_simFinetuned_weightedBCE'
+date = '04_12_2023'
+encoder_type = 'VGGproxy_encoder_weightedBCEPbatch12_then_VoxCFT_brainmask'
+classifier_type = 'VGGproxy_classifier_weightedBCEPbatch12_then_VoxCFT_brainmask'
+projector_type = 'VGGproxy_projector_weightedBCEPbatch12_then_VoxCFT_brainmask'
 
-save_model_path = '/mnt/fd67a3c7-ac13-4329-bdbb-bdad39a33bf1/LabData/models_retrained/experiments/Nov30/'
-
-# DUCKmodel_path = '/mnt/fd67a3c7-ac13-4329-bdbb-bdad39a33bf1/Gouri/Duck1wmh_focal + dice_state_dict_best_loss97.pth'
-encoder_path = f'{save_model_path}DUCK_WMH_proxy_encoder_simFinetuned_weightedBCE_30_11_2023_state_dict_best_loss10.pth'
-projection_head_path = f'{save_model_path}DUCK_WMH_proxy_projector_simFinetuned_weightedBCE_30_11_2023_state_dict_best_loss10.pth'
-classification_head_path = f'{save_model_path}DUCK_WMH_proxy_classifier_simFinetuned_weightedBCE_30_11_2023_state_dict_best_loss10.pth'
+save_model_path = '/mnt/70b9cd2d-ce8a-4b10-bb6d-96ae6a51130a/LabData/models_retrained/experiments/Dec04/'
+encoder_path = '/mnt/70b9cd2d-ce8a-4b10-bb6d-96ae6a51130a/LabData/models_retrained/experiments/Dec03/batch12/VGGproxy_encoder_weightedBCEpretrain_batch12_fixed_03_12_2023_state_dict_best_loss37.pth'
+classification_head_path = '/mnt/70b9cd2d-ce8a-4b10-bb6d-96ae6a51130a/LabData/models_retrained/experiments/Dec03/batch12/VGGproxy_classifier_weightedBCEpretrain_batch12_fixed_03_12_2023_state_dict_best_loss37.pth'
 
 Sim1000_train_data_paths = sorted(glob.glob('/mnt/70b9cd2d-ce8a-4b10-bb6d-96ae6a51130a/Gouri/simulation_data/Sim1000/Dark/all/TrainSet/*FLAIR.nii.gz'))
 Sim1000_train_gt_paths = sorted(glob.glob('/mnt/70b9cd2d-ce8a-4b10-bb6d-96ae6a51130a/Gouri/simulation_data/Sim1000/Dark/all/TrainSet/*mask.nii.gz'))
@@ -70,30 +68,22 @@ clean_trainset, clean_validationset = random_split(clean, (train_size, validatio
 trainset = ConcatDataset([Sim1000_trainset, sim2211_trainset, clean_trainset])
 validationset = ConcatDataset([Sim1000_validationset, sim2211_validationset, clean_validationset])
 
-trainloader = DataLoader(trainset, batch_size=batch_size, shuffle=False, num_workers=num_workers)
+trainloader = DataLoader(trainset, batch_size=batch_size, shuffle=True, num_workers=num_workers)
 validationloader = DataLoader(validationset, batch_size=batch_size, shuffle=True, num_workers=num_workers)
 
-DUCKnet_encoder = DuckNet(input_channels=1, out_classes=2, starting_filters=17).to(device)
-DUCKnet_encoder.load_state_dict(torch.load(encoder_path))
+encoder = VGG3D_Encoder(input_channels=1).to(device)
+projection_head = Projector(num_layers=5, layer_sizes=[32, 64, 128, 256, 512]).to(device)
+classification_head = Classifier(input_channels=4096, output_channels=5, pooling_size=2).to(device)
 
-# classification_head = Classifier(input_channels=17408, output_channels=5).to(device)
-classification_head = Classifier(input_channels=2176, output_channels=5).to(device)
+encoder.load_state_dict(torch.load(encoder_path))
 classification_head.load_state_dict(torch.load(classification_head_path))
 
-projection_head = Projector(num_layers=5, layer_sizes=[17, 34, 68, 136, 272]).to(device)
-projection_head.load_state_dict(torch.load(projection_head_path))
-
-# Freezing DUCKnet
-# for param in DUCKnet_encoder.parameters():
-    # param.requires_grad = False
-
-projector_optimizer = optim.Adam([*DUCKnet_encoder.parameters(), *projection_head.parameters()], lr = 0.0001, eps = 0.0001)
-# projector_optimizer = optim.Adam(projection_head.parameters(), lr = 0.0001, eps = 0.0001)
+projector_optimizer = optim.Adam([*encoder.parameters(), *projection_head.parameters()], lr = 0.0001, eps = 0.0001)
 classifier_optimizer = optim.Adam(classification_head.parameters(), lr = 0.0001, eps = 0.0001)
 
-class_weights = torch.tensor([0.5, 1, 1, 0.5, 0.5]).float().to(device)
-classification_criterion = nn.BCELoss(weight=class_weights).to(device)
+class_weights = torch.tensor([1, 2, 2, 1, 1]).float().to(device)
 projection_criterion = VoxelwiseSupConLoss_inImage(device=device).to(device)
+classification_criterion = nn.BCELoss(weight=class_weights).to(device)
 
 projection_train_loss_list = []
 projection_validation_loss_list = []
@@ -107,14 +97,14 @@ best_validation_loss = None
 
 print()
 print('Training Proxy.')
-for epoch in range(11, number_of_epochs+1):
+for epoch in range(1, number_of_epochs+1):
 
     print()
     print(f'Epoch #{epoch}')
     torch.cuda.empty_cache()
 
     # Train loop
-    DUCKnet_encoder.train()
+    encoder.train()
     projection_head.train()
     classification_head.train()
 
@@ -133,35 +123,30 @@ for epoch in range(11, number_of_epochs+1):
         image = data['input'].to(device)
         gt = data['gt'].to(device)
         oneHot_label = data['lesion_labels'].float().to(device)
+        # subtracted = data['subtracted'].to(device)
 
-        to_projector, to_classifier = DUCKnet_encoder(image)
-        prediction = classification_head(to_classifier)
+        to_projector, to_classifier = encoder(image)
 
+        prediction = classification_head(to_classifier.detach())
         classification_loss = classification_criterion(prediction, oneHot_label)
         classification_train_loss += classification_loss.item()
-        train_accuracy += determine_class_accuracy(prediction, oneHot_label).cpu()
-
-        # classifier_optimizer.zero_grad()
-        # classification_loss.backward()
-        # classifier_optimizer.step()
+        train_accuracy += determine_multiclass_accuracy(prediction, oneHot_label).cpu()
 
         if torch.unique(gt[:, 1]).shape[0] == 2:
+            brain_mask = torch.zeros_like(image)
+            brain_mask[image != 0] = 1
+            brain_mask = brain_mask.float().to(device)
+
             projection = projection_head(to_projector)
             projection = F.interpolate(projection, size=(128, 128, 128))
 
-            projection_loss = projection_criterion(projection, gt)
+            projection_loss = projection_criterion(projection, gt, brain_mask=brain_mask)
             projection_train_loss += projection_loss.item()
-
-            # encoder_projector_optimizer.zero_grad()
-            # projection_loss.backward()
-            # encoder_projector_optimizer.step()
-            # encoder_projector_optimizer.zero_grad()
 
             projector_optimizer.zero_grad()
             classifier_optimizer.zero_grad()
             loss = projection_loss + classification_loss
             loss.backward()
-            # encoder_projector_optimizer.step()
             projector_optimizer.step()
             classifier_optimizer.step()
 
@@ -173,7 +158,7 @@ for epoch in range(11, number_of_epochs+1):
             loss = classification_loss
             loss.backward()
             classifier_optimizer.step()
-            
+
         del image
         del gt
         del oneHot_label
@@ -197,7 +182,7 @@ for epoch in range(11, number_of_epochs+1):
     torch.cuda.empty_cache()
 
     # Validation loop
-    DUCKnet_encoder.eval()
+    encoder.eval()
     projection_head.eval()
     classification_head.eval()
 
@@ -209,19 +194,24 @@ for epoch in range(11, number_of_epochs+1):
         image = data['input'].to(device)
         gt = data['gt'].to(device)
         oneHot_label = data['lesion_labels'].float().to(device)
+        # subtracted = data['subtracted'].to(device)
 
-        to_projector, to_classifier = DUCKnet_encoder(image)
-        prediction = classification_head(to_classifier)
+        to_projector, to_classifier = encoder(image)
 
+        prediction = classification_head(to_classifier.detach())
         classification_loss = classification_criterion(prediction, oneHot_label)
         classification_validation_loss += classification_loss.item()
         validation_accuracy += determine_class_accuracy(prediction, oneHot_label).cpu()
 
         if torch.unique(gt[:, 1]).shape[0] == 2:
+            brain_mask = torch.zeros_like(image)
+            brain_mask[image != 0] = 1
+            brain_mask = brain_mask.float().to(device)
+
             projection = projection_head(to_projector)
             projection = F.interpolate(projection, size=(128, 128, 128))
 
-            projection_loss = projection_criterion(projection, gt)
+            projection_loss = projection_criterion(projection, gt, brain_mask=brain_mask)
             projection_validation_loss += projection_loss.item()
 
             del projection
@@ -250,30 +240,20 @@ for epoch in range(11, number_of_epochs+1):
     elif classification_validation_loss_list[-1] < best_validation_loss:
         patience = 15
         best_validation_loss = classification_validation_loss_list[-1]
-        torch.save(DUCKnet_encoder.state_dict(), f'{save_model_path}{encoder_type}_{date}_state_dict_best_loss{epoch}.pth')
+        torch.save(encoder.state_dict(), f'{save_model_path}{encoder_type}_{date}_state_dict_best_loss{epoch}.pth')
         torch.save(projection_head.state_dict(), f'{save_model_path}{projector_type}_{date}_state_dict_best_loss{epoch}.pth')
         torch.save(classification_head.state_dict(), f'{save_model_path}{classifier_type}_{date}_state_dict_best_loss{epoch}.pth')
-        # torch.save(encoder_projector_optimizer.state_dict(), f'{save_model_path}{projector_type}_ optimizer_{date}_state_dict_best_loss{epoch}.pth')
-        torch.save(projector_optimizer.state_dict(), f'{save_model_path}{projector_type}_ optimizer_{date}_state_dict_best_loss{epoch}.pth')
-        torch.save(classifier_optimizer.state_dict(), f'{save_model_path}{classifier_type}_ optimizer_{date}_state_dict_best_loss{epoch}.pth')
-        print(f'New best validation loss at epoch #{epoch}')
 
     if epoch % 10 == 0:
-        torch.save(DUCKnet_encoder.state_dict(), f'{save_model_path}{encoder_type}_{date}_state_dict{epoch}.pth')
+        torch.save(encoder.state_dict(), f'{save_model_path}{encoder_type}_{date}_state_dict{epoch}.pth')
         torch.save(projection_head.state_dict(), f'{save_model_path}{projector_type}_{date}_state_dict{epoch}.pth')
         torch.save(classification_head.state_dict(), f'{save_model_path}{classifier_type}_{date}_state_dict{epoch}.pth')
-        # torch.save(encoder_projector_optimizer.state_dict(), f'{save_model_path}{projector_type}_ optimizer_{date}_state_dict{epoch}.pth')
-        torch.save(projector_optimizer.state_dict(), f'{save_model_path}{projector_type}_ optimizer_{date}_state_dict{epoch}.pth')
-        torch.save(classifier_optimizer.state_dict(), f'{save_model_path}{classifier_type}_ optimizer_{date}_state_dict{epoch}.pth')
 
     print()
 
-torch.save(DUCKnet_encoder.state_dict(), f'{save_model_path}{encoder_type}_{date}_state_dict{number_of_epochs+1}.pth')
+torch.save(encoder.state_dict(), f'{save_model_path}{encoder_type}_{date}_state_dict{number_of_epochs+1}.pth')
 torch.save(projection_head.state_dict(), f'{save_model_path}{projector_type}_{date}_state_dict{number_of_epochs+1}.pth')
 torch.save(classification_head.state_dict(), f'{save_model_path}{classifier_type}_{date}_state_dict{number_of_epochs+1}.pth')
-# torch.save(encoder_projector_optimizer.state_dict(), f'{save_model_path}{projector_type}_ optimizer_{date}_state_dict{number_of_epochs+1}.pth')
-torch.save(projector_optimizer.state_dict(), f'{save_model_path}{projector_type}_ optimizer_{date}_state_dict{number_of_epochs+1}.pth')
-torch.save(classifier_optimizer.state_dict(), f'{save_model_path}{classifier_type}_ optimizer_{date}_state_dict{number_of_epochs+1}.pth')
 
 print()
 print('Script executed.')

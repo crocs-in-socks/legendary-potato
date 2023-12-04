@@ -28,36 +28,44 @@ projector_type = 'VGGproxy_projector_simFinetuned_weightedBCE_negativeRing'
 
 save_model_path = '/mnt/fd67a3c7-ac13-4329-bdbb-bdad39a33bf1/LabData/models_retrained/experiments/Dec01/'
 
-from_Sim1000_data_paths = sorted(glob.glob('/mnt/fd67a3c7-ac13-4329-bdbb-bdad39a33bf1/Gouri/simulation_data/Sim1000/Dark/all/**/*FLAIR.nii.gz'))
-from_sim2211_data_paths = sorted(glob.glob('/mnt/fd67a3c7-ac13-4329-bdbb-bdad39a33bf1/Gouri/simulation_data/Full_sim_22_11_23/Dark/**/**/*FLAIR.nii.gz'))
+Sim1000_train_data_paths = sorted(glob.glob('/mnt/70b9cd2d-ce8a-4b10-bb6d-96ae6a51130a/Gouri/simulation_data/Sim1000/Dark/all/TrainSet/*FLAIR.nii.gz'))
+Sim1000_train_gt_paths = sorted(glob.glob('/mnt/70b9cd2d-ce8a-4b10-bb6d-96ae6a51130a/Gouri/simulation_data/Sim1000/Dark/all/TrainSet/*mask.nii.gz'))
+Sim1000_train_json_paths = sorted(glob.glob('/mnt/70b9cd2d-ce8a-4b10-bb6d-96ae6a51130a/Gouri/simulation_data/Sim1000/Dark/all/TrainSet/*.json'))
 
-from_Sim1000_gt_paths = sorted(glob.glob('/mnt/fd67a3c7-ac13-4329-bdbb-bdad39a33bf1/Gouri/simulation_data/Sim1000/Dark/all/**/*mask.nii.gz'))
-from_sim2211_gt_paths = sorted(glob.glob('/mnt/fd67a3c7-ac13-4329-bdbb-bdad39a33bf1/Gouri/simulation_data/Full_sim_22_11_23/Dark/**/**/*mask.nii.gz'))
+Sim1000_validation_data_paths = sorted(glob.glob('/mnt/70b9cd2d-ce8a-4b10-bb6d-96ae6a51130a/Gouri/simulation_data/Sim1000/Dark/all/ValSet/*FLAIR.nii.gz'))
+Sim1000_validation_gt_paths = sorted(glob.glob('/mnt/70b9cd2d-ce8a-4b10-bb6d-96ae6a51130a/Gouri/simulation_data/Sim1000/Dark/all/ValSet/*mask.nii.gz'))
+Sim1000_validation_json_paths = sorted(glob.glob('/mnt/70b9cd2d-ce8a-4b10-bb6d-96ae6a51130a/Gouri/simulation_data/Sim1000/Dark/all/ValSet/*.json'))
 
-from_Sim1000_json_paths = sorted(glob.glob('/mnt/fd67a3c7-ac13-4329-bdbb-bdad39a33bf1/Gouri/simulation_data/Sim1000/Dark/all/**/*.json'))
-from_sim2211_json_paths = sorted(glob.glob('/mnt/fd67a3c7-ac13-4329-bdbb-bdad39a33bf1/Gouri/simulation_data/Full_sim_22_11_23/Dark/**/**/*.json'))
+sim2211_train_data_paths = sorted(glob.glob('/mnt/70b9cd2d-ce8a-4b10-bb6d-96ae6a51130a/Gouri/simulation_data/Full_sim_22_11_23/Dark/**/TrainSet/*FLAIR.nii.gz'))
+sim2211_train_gt_paths = sorted(glob.glob('/mnt/70b9cd2d-ce8a-4b10-bb6d-96ae6a51130a/Gouri/simulation_data/Full_sim_22_11_23/Dark/**/TrainSet/*mask.nii.gz'))
+sim2211_train_json_paths = sorted(glob.glob('/mnt/70b9cd2d-ce8a-4b10-bb6d-96ae6a51130a/Gouri/simulation_data/Full_sim_22_11_23/Dark/**/TrainSet/*.json'))
 
-clean_data_paths = sorted(glob.glob('/mnt/fd67a3c7-ac13-4329-bdbb-bdad39a33bf1/LabData/NIMH/3d/*.anat*/*fast_restore.nii.gz*'))
-clean_gt_paths = sorted(glob.glob('/mnt/fd67a3c7-ac13-4329-bdbb-bdad39a33bf1/LabData/NIMH/3d/*.anat*/*seg_label.nii.gz*'))
+sim2211_validation_data_paths = sorted(glob.glob('/mnt/70b9cd2d-ce8a-4b10-bb6d-96ae6a51130a/Gouri/simulation_data/Full_sim_22_11_23/Dark/**/ValSet/*FLAIR.nii.gz'))
+sim2211_validation_gt_paths = sorted(glob.glob('/mnt/70b9cd2d-ce8a-4b10-bb6d-96ae6a51130a/Gouri/simulation_data/Full_sim_22_11_23/Dark/**/ValSet/*mask.nii.gz'))
+sim2211_validation_json_paths = sorted(glob.glob('/mnt/70b9cd2d-ce8a-4b10-bb6d-96ae6a51130a/Gouri/simulation_data/Full_sim_22_11_23/Dark/**/ValSet/*.json'))
+
+clean_data_paths = sorted(glob.glob('/mnt/70b9cd2d-ce8a-4b10-bb6d-96ae6a51130a/LabData/NIMH/3d/*.anat*/*fast_restore.nii.gz*'))
+clean_gt_paths = sorted(glob.glob('/mnt/70b9cd2d-ce8a-4b10-bb6d-96ae6a51130a/LabData/NIMH/3d/*.anat*/*seg_label.nii.gz*'))
 
 composed_transform = transforms.Compose([
-        ToTensor3D(labeled=True, subtracted=True)
+        ToTensor3D(labeled=True)
     ])
 
-from_Sim1000 = ImageLoader3D(paths=from_Sim1000_data_paths, gt_paths=from_Sim1000_gt_paths, json_paths=from_Sim1000_json_paths, image_size=128, type_of_imgs='nifty', transform=composed_transform, subtracted=True)
+Sim1000_trainset = ImageLoader3D(paths=Sim1000_train_data_paths, gt_paths=Sim1000_train_gt_paths, json_paths=Sim1000_train_json_paths, image_size=128, type_of_imgs='nifty', transform=composed_transform)
+Sim1000_validationset = ImageLoader3D(paths=Sim1000_validation_data_paths, gt_paths=Sim1000_validation_gt_paths, json_paths=Sim1000_validation_json_paths, image_size=128, type_of_imgs='nifty', transform=composed_transform)
 
-from_sim2211 = ImageLoader3D(paths=from_sim2211_data_paths,gt_paths=from_sim2211_gt_paths, json_paths=from_sim2211_json_paths, image_size=128, type_of_imgs='nifty', transform=composed_transform, subtracted=True)
+sim2211_trainset = ImageLoader3D(paths=sim2211_train_data_paths, gt_paths=sim2211_train_gt_paths, json_paths=sim2211_train_json_paths, image_size=128, type_of_imgs='nifty', transform=composed_transform)
+sim2211_validationset = ImageLoader3D(paths=sim2211_validation_data_paths, gt_paths=sim2211_validation_gt_paths, json_paths=sim2211_validation_json_paths, image_size=128, type_of_imgs='nifty', transform=composed_transform)
 
-clean = ImageLoader3D(paths=clean_data_paths, gt_paths=clean_gt_paths, json_paths=None, image_size=128, type_of_imgs='nifty', transform=composed_transform, subtracted=True)
+clean = ImageLoader3D(paths=clean_data_paths, gt_paths=clean_gt_paths, json_paths=None, image_size=128, type_of_imgs='nifty', transform=composed_transform)
+train_size = int(0.8 * len(clean))
+validation_size = len(clean) - train_size
+clean_trainset, clean_validationset = random_split(clean, (train_size, validation_size))
 
-fullset = ConcatDataset([from_Sim1000, from_sim2211, clean])
+trainset = ConcatDataset([Sim1000_trainset, sim2211_trainset, clean_trainset])
+validationset = ConcatDataset([Sim1000_validationset, sim2211_validationset, clean_validationset])
 
-train_size = int(0.8 * len(fullset))
-validation_size = len(fullset) - train_size
-
-trainset, validationset = random_split(fullset, (train_size, validation_size))
-
-trainloader = DataLoader(trainset, batch_size=batch_size, shuffle=False, num_workers=num_workers)
+trainloader = DataLoader(trainset, batch_size=batch_size, shuffle=True, num_workers=num_workers)
 validationloader = DataLoader(validationset, batch_size=batch_size, shuffle=True, num_workers=num_workers)
 
 encoder = VGG3D_Encoder(input_channels=1).to(device)
