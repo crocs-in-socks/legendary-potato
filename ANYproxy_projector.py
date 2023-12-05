@@ -19,27 +19,27 @@ patience = 15
 num_workers = 16
 device = 'cuda:1'
 
-encoder_model_path = '/mnt/70b9cd2d-ce8a-4b10-bb6d-96ae6a51130a/LabData/models_retrained/experiments/Dec04/VGGproxy_encoder_weightedBCEPbatch12_then_VoxCFT_brainmask_04_12_2023_state_dict40.pth'
-projector_model_path = '/mnt/70b9cd2d-ce8a-4b10-bb6d-96ae6a51130a/LabData/models_retrained/experiments/Dec04/VGGproxy_projector_weightedBCEPbatch12_then_VoxCFT_brainmask_04_12_2023_state_dict40.pth'
+encoder_model_path = '/mnt/fd67a3c7-ac13-4329-bdbb-bdad39a33bf1/LabData/models_retrained/experiments/Dec04/VGGproxy_encoder_weightedBCEPbatch12_then_VoxCFT_brainmask_04_12_2023_state_dict40.pth'
+projector_model_path = '/mnt/fd67a3c7-ac13-4329-bdbb-bdad39a33bf1/LabData/models_retrained/experiments/Dec04/VGGproxy_projector_weightedBCEPbatch12_then_VoxCFT_brainmask_04_12_2023_state_dict40.pth'
 
-Sim1000_train_data_paths = sorted(glob.glob('/mnt/70b9cd2d-ce8a-4b10-bb6d-96ae6a51130a/Gouri/simulation_data/Sim1000/Dark/all/TrainSet/*FLAIR.nii.gz'))
-Sim1000_train_gt_paths = sorted(glob.glob('/mnt/70b9cd2d-ce8a-4b10-bb6d-96ae6a51130a/Gouri/simulation_data/Sim1000/Dark/all/TrainSet/*mask.nii.gz'))
-Sim1000_train_json_paths = sorted(glob.glob('/mnt/70b9cd2d-ce8a-4b10-bb6d-96ae6a51130a/Gouri/simulation_data/Sim1000/Dark/all/TrainSet/*.json'))
+Sim1000_train_data_paths = sorted(glob.glob('/mnt/fd67a3c7-ac13-4329-bdbb-bdad39a33bf1/Gouri/simulation_data/Sim1000/Dark/all/TrainSet/*FLAIR.nii.gz'))
+Sim1000_train_gt_paths = sorted(glob.glob('/mnt/fd67a3c7-ac13-4329-bdbb-bdad39a33bf1/Gouri/simulation_data/Sim1000/Dark/all/TrainSet/*mask.nii.gz'))
+Sim1000_train_json_paths = sorted(glob.glob('/mnt/fd67a3c7-ac13-4329-bdbb-bdad39a33bf1/Gouri/simulation_data/Sim1000/Dark/all/TrainSet/*.json'))
 
-Sim1000_validation_data_paths = sorted(glob.glob('/mnt/70b9cd2d-ce8a-4b10-bb6d-96ae6a51130a/Gouri/simulation_data/Sim1000/Dark/all/ValSet/*FLAIR.nii.gz'))
-Sim1000_validation_gt_paths = sorted(glob.glob('/mnt/70b9cd2d-ce8a-4b10-bb6d-96ae6a51130a/Gouri/simulation_data/Sim1000/Dark/all/ValSet/*mask.nii.gz'))
-Sim1000_validation_json_paths = sorted(glob.glob('/mnt/70b9cd2d-ce8a-4b10-bb6d-96ae6a51130a/Gouri/simulation_data/Sim1000/Dark/all/ValSet/*.json'))
+Sim1000_validation_data_paths = sorted(glob.glob('/mnt/fd67a3c7-ac13-4329-bdbb-bdad39a33bf1/Gouri/simulation_data/Sim1000/Dark/all/ValSet/*FLAIR.nii.gz'))
+Sim1000_validation_gt_paths = sorted(glob.glob('/mnt/fd67a3c7-ac13-4329-bdbb-bdad39a33bf1/Gouri/simulation_data/Sim1000/Dark/all/ValSet/*mask.nii.gz'))
+Sim1000_validation_json_paths = sorted(glob.glob('/mnt/fd67a3c7-ac13-4329-bdbb-bdad39a33bf1/Gouri/simulation_data/Sim1000/Dark/all/ValSet/*.json'))
 
-sim2211_train_data_paths = sorted(glob.glob('/mnt/70b9cd2d-ce8a-4b10-bb6d-96ae6a51130a/Gouri/simulation_data/Full_sim_22_11_23/Dark/**/TrainSet/*FLAIR.nii.gz'))
-sim2211_train_gt_paths = sorted(glob.glob('/mnt/70b9cd2d-ce8a-4b10-bb6d-96ae6a51130a/Gouri/simulation_data/Full_sim_22_11_23/Dark/**/TrainSet/*mask.nii.gz'))
-sim2211_train_json_paths = sorted(glob.glob('/mnt/70b9cd2d-ce8a-4b10-bb6d-96ae6a51130a/Gouri/simulation_data/Full_sim_22_11_23/Dark/**/TrainSet/*.json'))
+sim2211_train_data_paths = sorted(glob.glob('/mnt/fd67a3c7-ac13-4329-bdbb-bdad39a33bf1/Gouri/simulation_data/Full_sim_22_11_23/Dark/**/TrainSet/*FLAIR.nii.gz'))
+sim2211_train_gt_paths = sorted(glob.glob('/mnt/fd67a3c7-ac13-4329-bdbb-bdad39a33bf1/Gouri/simulation_data/Full_sim_22_11_23/Dark/**/TrainSet/*mask.nii.gz'))
+sim2211_train_json_paths = sorted(glob.glob('/mnt/fd67a3c7-ac13-4329-bdbb-bdad39a33bf1/Gouri/simulation_data/Full_sim_22_11_23/Dark/**/TrainSet/*.json'))
 
-sim2211_validation_data_paths = sorted(glob.glob('/mnt/70b9cd2d-ce8a-4b10-bb6d-96ae6a51130a/Gouri/simulation_data/Full_sim_22_11_23/Dark/**/ValSet/*FLAIR.nii.gz'))
-sim2211_validation_gt_paths = sorted(glob.glob('/mnt/70b9cd2d-ce8a-4b10-bb6d-96ae6a51130a/Gouri/simulation_data/Full_sim_22_11_23/Dark/**/ValSet/*mask.nii.gz'))
-sim2211_validation_json_paths = sorted(glob.glob('/mnt/70b9cd2d-ce8a-4b10-bb6d-96ae6a51130a/Gouri/simulation_data/Full_sim_22_11_23/Dark/**/ValSet/*.json'))
+sim2211_validation_data_paths = sorted(glob.glob('/mnt/fd67a3c7-ac13-4329-bdbb-bdad39a33bf1/Gouri/simulation_data/Full_sim_22_11_23/Dark/**/ValSet/*FLAIR.nii.gz'))
+sim2211_validation_gt_paths = sorted(glob.glob('/mnt/fd67a3c7-ac13-4329-bdbb-bdad39a33bf1/Gouri/simulation_data/Full_sim_22_11_23/Dark/**/ValSet/*mask.nii.gz'))
+sim2211_validation_json_paths = sorted(glob.glob('/mnt/fd67a3c7-ac13-4329-bdbb-bdad39a33bf1/Gouri/simulation_data/Full_sim_22_11_23/Dark/**/ValSet/*.json'))
 
-clean_data_paths = sorted(glob.glob('/mnt/70b9cd2d-ce8a-4b10-bb6d-96ae6a51130a/LabData/NIMH/3d/*.anat*/*fast_restore.nii.gz*'))
-clean_gt_paths = sorted(glob.glob('/mnt/70b9cd2d-ce8a-4b10-bb6d-96ae6a51130a/LabData/NIMH/3d/*.anat*/*seg_label.nii.gz*'))
+clean_data_paths = sorted(glob.glob('/mnt/fd67a3c7-ac13-4329-bdbb-bdad39a33bf1/LabData/NIMH/3d/*.anat*/*fast_restore.nii.gz*'))
+clean_gt_paths = sorted(glob.glob('/mnt/fd67a3c7-ac13-4329-bdbb-bdad39a33bf1/LabData/NIMH/3d/*.anat*/*seg_label.nii.gz*'))
 
 composed_transform = transforms.Compose([
         ToTensor3D(labeled=True)
