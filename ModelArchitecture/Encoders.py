@@ -264,18 +264,23 @@ class Classifier(nn.Module):
         return out
     
 class Projector(nn.Module):
-    def __init__(self, num_layers, layer_sizes):
+    def __init__(self, num_layers, layer_sizes, test=False):
         super().__init__()
         self.num_layers = num_layers
         self.projection_heads = nn.ModuleList([nn.Conv3d(layer_sizes[idx], 1, kernel_size=1) for idx in range(num_layers)])
         self.super_projection_head = nn.Conv3d(num_layers, 1, kernel_size=1)
+        self.test = test
     
     def forward(self, x):
-        out = [self.projection_heads[idx](x[idx]) for idx in range(self.num_layers)]
-        ll = out[0].shape[-1]
-        out = [F.interpolate(out[idx], size=(ll, ll, ll), mode='trilinear') for idx in range(self.num_layers)]
-        out = torch.cat(out, dim=1)
-        out = self.super_projection_head(out)
+        individual_out = [self.projection_heads[idx](x[idx]) for idx in range(self.num_layers)]
+        largest_layer_shape = individual_out[0].shape[-1]
+        upsampled_out = [F.interpolate(individual_out[idx], size=(largest_layer_shape, largest_layer_shape, largest_layer_shape), mode='trilinear') for idx in range(self.num_layers)]
+        stacked_out = torch.cat(upsampled_out, dim=1)
+        out = self.super_projection_head(stacked_out)
+
+        if self.test:
+            return out, individual_out
+
         return out
     
 class DUCKproxy_Decoder(nn.Module):
