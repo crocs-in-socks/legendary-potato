@@ -411,7 +411,8 @@ class SpatialAttention_ProxyIntegration(nn.Module):
         attention_x = upsampled_x * proxy_map
         out_x = F.interpolate(attention_x, size=x.shape[-3:])
 
-        return out_x
+
+        return out_x + x
 
 class SpatialAttention(nn.Module):
     def __init__(self, ):
@@ -426,7 +427,6 @@ class SpatialAttention(nn.Module):
         x_spa = torch.cat([avg_out, max_out], dim=1)
         x_spa = self.conv1(x_spa)
         x_spa = self.sigmoid(x_spa)
-        print(x.shape)
         x = x*x_spa
         return x
     
