@@ -16,17 +16,18 @@ import glob
 import numpy as np
 from tqdm import tqdm
 
-batch_size = 12
+### Constants
+batch_size = 1
 patience = 15
-num_workers = 12
+num_workers = 16
 device = 'cuda:1'
 number_of_epochs = 100
 date = '05_12_2023'
-encoder_type = f'VGGproxy_encoder_weightedBCEpretrain_withLRScheduler'
-classifier_type = f'VGGproxy_classifier_weightedBCEpretrain_withLRScheduler'
-projector_type = f'VGGproxy_projector_weightedBCEpretrain_withLRScheduler'
+encoder_type = 'UNETproxy_encoder_weightedBCEPbatch8_then_VoxCFT18000_brainmask'
+projector_type = 'UNETproxy_projector_weightedBCEPbatch8_then_VoxCFT18000_brainmask'
 
-save_model_path = f'/mnt/fd67a3c7-ac13-4329-bdbb-bdad39a33bf1/LabData/models_retrained/experiments/Dec05/'
+save_model_path = f'/mnt/fd67a3c7-ac13-4329-bdbb-bdad39a33bf1/LabData/models_retrained/experiments/Dec05_UNet/'
+encoder_path = '/mnt/fd67a3c7-ac13-4329-bdbb-bdad39a33bf1/LabData/models_retrained/experiments/Dec05_UNet/UNETproxy_classifier_weightedBCEpretrain_withLRScheduler_05_12_2023_state_dict_best_loss34.pth'
 
 Sim1000_train_data_paths = sorted(glob.glob('/mnt/fd67a3c7-ac13-4329-bdbb-bdad39a33bf1/Gouri/simulation_data/Sim1000/Dark/all/TrainSet/*FLAIR.nii.gz'))
 Sim1000_train_gt_paths = sorted(glob.glob('/mnt/fd67a3c7-ac13-4329-bdbb-bdad39a33bf1/Gouri/simulation_data/Sim1000/Dark/all/TrainSet/*mask.nii.gz'))
@@ -68,23 +69,15 @@ validationset = ConcatDataset([Sim1000_validationset, sim2211_validationset, cle
 trainloader = DataLoader(trainset, batch_size=batch_size, shuffle=True, num_workers=num_workers)
 validationloader = DataLoader(validationset, batch_size=batch_size, shuffle=True, num_workers=num_workers)
 
-encoder = VGG3D_Encoder(input_channels=1).to(device)
-classification_head = Classifier(input_channels=4096, output_channels=5, pooling_size=2).to(device)
+encoder = SA_UNet_Encoder(out_channels=2).to(device)
+encoder.load_state_dict(torch.load(encoder_path), strict=False)
+projection_head = Projector(num_layers=4, layer_sizes=[64, 128, 256, 512]).to(device)
 
-classifier_optimizer = optim.Adam([*encoder.parameters(), *classification_head.parameters()], lr = 0.0001, eps = 0.0001)
+projector_optimizer = optim.Adam([*encoder.parameters(), *projection_head.parameters()], lr = 0.001, eps = 0.0001)
+projection_criterion = VoxelwiseSupConLoss_inImage(device=device).to(device)
 
-classifier_scheduler = optim.lr_scheduler.ReduceLROnPlateau(classifier_optimizer, mode='min', patience=10, factor=0.1, verbose=True)
-
-class_weights = torch.tensor([1, 2, 2, 1, 1]).float().to(device)
-classification_criterion = nn.BCELoss(weight=class_weights).to(device)
-
-classification_train_loss_list = []
-classification_validation_loss_list = []
-
-train_accuracy_list = []
-validation_accuracy_list = []
-
-best_validation_loss = None
+projection_train_loss_list = []
+projection_validation_loss_list = []
 
 print()
 print('Training Proxy.')
@@ -96,98 +89,101 @@ for epoch in range(1, number_of_epochs+1):
 
     # Train loop
     encoder.train()
-    classification_head.train()
+    projection_head.train()
 
-    classification_train_loss = 0
-    train_accuracy = 0
+    projection_train_loss = 0
+
+    # patience -= 1
+    # if patience == 0:
+    #     print()
+    #     print(f'Breaking at epoch #{epoch} due to lack of patience. Best validation loss was: {best_validation_loss}')
 
     # with torch.autograd.profiler.profile(enabled=True, use_cuda=True) as prof:
 
     for data in tqdm(trainloader):
         image = data['input'].to(device)
-        oneHot_label = data['lesion_labels'].float().to(device)
+        gt = data['gt'].to(device)
+        # subtracted = data['subtracted'].to(device)
 
-        to_projector, to_classifier = encoder(image)
+        to_projector, _ = encoder(image)
 
-        prediction = classification_head(to_classifier)
-        classification_loss = classification_criterion(prediction, oneHot_label)
-        classification_train_loss += classification_loss.item()
-        train_accuracy += determine_multiclass_accuracy(prediction, oneHot_label).cpu()
+        if torch.unique(gt[:, 1]).shape[0] == 2:
+            brain_mask = torch.zeros_like(image)
+            brain_mask[image != 0] = 1
+            brain_mask = brain_mask.float().to(device)
 
-        classifier_optimizer.zero_grad()
-        loss = classification_loss
-        loss.backward()
-        classifier_optimizer.step()
+            projection = projection_head(to_projector)
+            projection = F.interpolate(projection, size=(128, 128, 128))
+
+            projection_loss = projection_criterion(projection, gt, brain_mask=brain_mask)
+            projection_train_loss += projection_loss.item()
+
+            projector_optimizer.zero_grad()
+            loss = projection_loss
+            loss.backward()
+            projector_optimizer.step()
+
+            del projection
+            del projection_loss
 
         del image
-        del oneHot_label
+        del gt
         del to_projector
-        del to_classifier
-        del prediction
-        del classification_loss
-        del loss
     
     # print(prof.key_averages().table(sort_by="cuda_time_total"))
     # break
     
-    classification_train_loss_list.append(classification_train_loss / len(trainloader))
-    train_accuracy_list.append(train_accuracy / len(trainloader))
-    print(f'Classification train loss at epoch #{epoch}: {classification_train_loss_list[-1]}')
-    print(f'Train accuracy at epoch #{epoch}: {train_accuracy_list[-1]}')
+    projection_train_loss_list.append(projection_train_loss / len(trainloader))
+    print(f'Projection train loss at epoch #{epoch}: {projection_train_loss_list[-1]}')
 
     print()
     torch.cuda.empty_cache()
 
     # Validation loop
     encoder.eval()
-    classification_head.eval()
+    projection_head.eval()
 
-    classification_validation_loss = 0
-    validation_accuracy = 0
+    projection_validation_loss = 0
 
     for data in tqdm(validationloader):
         image = data['input'].to(device)
-        oneHot_label = data['lesion_labels'].float().to(device)
+        gt = data['gt'].to(device)
+        # subtracted = data['subtracted'].to(device)
 
-        to_projector, to_classifier = encoder(image)
-        prediction = classification_head(to_classifier)
+        to_projector, _ = encoder(image)
 
-        classification_loss = classification_criterion(prediction, oneHot_label)
-        classification_validation_loss += classification_loss.item()
-        validation_accuracy += determine_class_accuracy(prediction, oneHot_label).cpu()
+        if torch.unique(gt[:, 1]).shape[0] == 2:
+            brain_mask = torch.zeros_like(image)
+            brain_mask[image != 0] = 1
+            brain_mask = brain_mask.float().to(device)
+
+            projection = projection_head(to_projector)
+            projection = F.interpolate(projection, size=(128, 128, 128))
+
+            projection_loss = projection_criterion(projection, gt, brain_mask=brain_mask)
+            projection_validation_loss += projection_loss.item()
+
+            del projection
+            del projection_loss
 
         del image
-        del oneHot_label
+        del gt
         del to_projector
-        del to_classifier
-        del prediction
-        del classification_loss
+
     
-    classification_validation_loss_list.append(classification_validation_loss / len(validationloader))
-    validation_accuracy_list.append(validation_accuracy / len(validationloader))
-    print(f'Classification validation loss at epoch #{epoch}: {classification_validation_loss_list[-1]}')
-    print(f'Validation accuracy at epoch #{epoch}: {validation_accuracy_list[-1]}')
+    projection_validation_loss_list.append(projection_validation_loss / len(validationloader))
+    print(f'Projection validation loss at epoch #{epoch}: {projection_validation_loss_list[-1]}')
 
-    np.save(f'./results/{classifier_type}_{date}_accuracies.npy', [classification_train_loss_list, classification_validation_loss_list, train_accuracy_list, validation_accuracy_list])
-
-    classifier_scheduler.step(classification_validation_loss_list[-1])
-
-    if best_validation_loss is None:
-        best_validation_loss = classification_validation_loss_list[-1]
-    elif classification_validation_loss_list[-1] < best_validation_loss:
-        patience = 15
-        best_validation_loss = classification_validation_loss_list[-1]
-        torch.save(encoder.state_dict(), f'{save_model_path}{encoder_type}_{date}_state_dict_best_loss{epoch}.pth')
-        torch.save(classification_head.state_dict(), f'{save_model_path}{classifier_type}_{date}_state_dict_best_loss{epoch}.pth')
+    np.save(f'./results/{projector_type}_{date}_losses.npy', [projection_train_loss_list, projection_validation_loss_list])
 
     if epoch % 10 == 0:
         torch.save(encoder.state_dict(), f'{save_model_path}{encoder_type}_{date}_state_dict{epoch}.pth')
-        torch.save(classification_head.state_dict(), f'{save_model_path}{classifier_type}_{date}_state_dict{epoch}.pth')
+        torch.save(projection_head.state_dict(), f'{save_model_path}{projector_type}_{date}_state_dict{epoch}.pth')
 
     print()
 
 torch.save(encoder.state_dict(), f'{save_model_path}{encoder_type}_{date}_state_dict{number_of_epochs+1}.pth')
-torch.save(classification_head.state_dict(), f'{save_model_path}{classifier_type}_{date}_state_dict{number_of_epochs+1}.pth')
+torch.save(projection_head.state_dict(), f'{save_model_path}{projector_type}_{date}_state_dict{number_of_epochs+1}.pth')
 
 print()
 print('Script executed.')

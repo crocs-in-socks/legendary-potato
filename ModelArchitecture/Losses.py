@@ -97,7 +97,7 @@ class VoxelwiseSupConLoss_inImage(nn.Module):
         self.temperature = temperature
         self.struct_element = np.ones((5, 5, 5), dtype=bool)
         self.device = device
-        self.max_pixels = 10500
+        self.max_pixels = 18000
     
     def forward(self, Zs, pixel_mask, subtracted_mask=None, brain_mask=None):
 
