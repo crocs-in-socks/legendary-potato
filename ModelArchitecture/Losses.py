@@ -92,12 +92,12 @@ class VoxelwiseSupConMSELoss(nn.Module):
         return loss
 
 class VoxelwiseSupConLoss_inImage(nn.Module):
-    def __init__(self, temperature=0.07, device='cpu'):
+    def __init__(self, temperature=0.07, device='cpu', num_voxels=10500):
         super().__init__()
         self.temperature = temperature
         self.struct_element = np.ones((5, 5, 5), dtype=bool)
         self.device = device
-        self.max_pixels = 18000
+        self.max_pixels = num_voxels
     
     def forward(self, Zs, pixel_mask, subtracted_mask=None, brain_mask=None):
 

@@ -19,8 +19,8 @@ patience = 15
 num_workers = 16
 device = 'cuda:1'
 
-encoder_model_path = '/mnt/70b9cd2d-ce8a-4b10-bb6d-96ae6a51130a/LabData/models_retrained/experiments/Dec04/VGGproxy_encoder_weightedBCEPbatch12_then_VoxCFT_brainmask_04_12_2023_state_dict100.pth'
-projector_model_path = '/mnt/70b9cd2d-ce8a-4b10-bb6d-96ae6a51130a/LabData/models_retrained/experiments/Dec04/VGGproxy_projector_weightedBCEPbatch12_then_VoxCFT_brainmask_04_12_2023_state_dict100.pth'
+encoder_model_path = '/mnt/fd67a3c7-ac13-4329-bdbb-bdad39a33bf1/LabData/models_retrained/experiments/Dec05_UNet/UNETproxy_encoder_weightedBCEPbatch8_then_VoxCFT18000_brainmask_05_12_2023_state_dict101.pth'
+projector_model_path = '/mnt/fd67a3c7-ac13-4329-bdbb-bdad39a33bf1/LabData/models_retrained/experiments/Dec05_UNet/UNETproxy_projector_weightedBCEPbatch8_then_VoxCFT18000_brainmask_05_12_2023_state_dict101.pth'
 
 Sim1000_train_data_paths = sorted(glob.glob('/mnt/fd67a3c7-ac13-4329-bdbb-bdad39a33bf1/Gouri/simulation_data/Sim1000/Dark/all/TrainSet/*FLAIR.nii.gz'))
 Sim1000_train_gt_paths = sorted(glob.glob('/mnt/fd67a3c7-ac13-4329-bdbb-bdad39a33bf1/Gouri/simulation_data/Sim1000/Dark/all/TrainSet/*mask.nii.gz'))
@@ -64,15 +64,16 @@ validationloader = DataLoader(validationset, batch_size=batch_size, shuffle=True
 
 # encoder = DuckNet(input_channels=1, out_classes=2, starting_filters=17).to(device)
 # encoder = ResNet3D_Encoder(image_channels=1).to(device)
-encoder = VGG3D_Encoder(input_channels=1).to(device)
+# encoder = VGG3D_Encoder(input_channels=1).to(device)
+encoder = SA_UNet_Encoder(out_channels=2).to(device)
 encoder.load_state_dict(torch.load(encoder_model_path))
 
 # classification_head = Classifier(input_channels=17408, output_channels=5).to(device)
 # classification_head = Classifier(input_channels=2176, output_channels=5).to(device)
 
 # projection_head = Projector(num_layers=5, layer_sizes=[17, 34, 68, 136, 272]).to(device)
-# projection_head = Projector(num_layers=4, layer_sizes=[64, 128, 256, 512]).to(device)
-projection_head = Projector(num_layers=5, layer_sizes=[32, 64, 128, 256, 512]).to(device)
+projection_head = Projector(num_layers=4, layer_sizes=[64, 128, 256, 512]).to(device)
+# projection_head = Projector(num_layers=5, layer_sizes=[32, 64, 128, 256, 512]).to(device)
 projection_head.load_state_dict(torch.load(projector_model_path))
 
 encoder.eval()

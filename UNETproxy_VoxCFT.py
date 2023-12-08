@@ -27,7 +27,8 @@ encoder_type = 'UNETproxy_encoder_weightedBCEPbatch8_then_VoxCFT18000_brainmask'
 projector_type = 'UNETproxy_projector_weightedBCEPbatch8_then_VoxCFT18000_brainmask'
 
 save_model_path = f'/mnt/fd67a3c7-ac13-4329-bdbb-bdad39a33bf1/LabData/models_retrained/experiments/Dec05_UNet/'
-encoder_path = '/mnt/fd67a3c7-ac13-4329-bdbb-bdad39a33bf1/LabData/models_retrained/experiments/Dec05_UNet/UNETproxy_classifier_weightedBCEpretrain_withLRScheduler_05_12_2023_state_dict_best_loss34.pth'
+encoder_path = '/mnt/fd67a3c7-ac13-4329-bdbb-bdad39a33bf1/LabData/models_retrained/experiments/Dec05_UNet/UNETproxy_encoder_weightedBCEPbatch8_then_VoxCFT18000_brainmask_05_12_2023_state_dict30.pth'
+projector_path = '/mnt/fd67a3c7-ac13-4329-bdbb-bdad39a33bf1/LabData/models_retrained/experiments/Dec05_UNet/UNETproxy_projector_weightedBCEPbatch8_then_VoxCFT18000_brainmask_05_12_2023_state_dict30.pth'
 
 Sim1000_train_data_paths = sorted(glob.glob('/mnt/fd67a3c7-ac13-4329-bdbb-bdad39a33bf1/Gouri/simulation_data/Sim1000/Dark/all/TrainSet/*FLAIR.nii.gz'))
 Sim1000_train_gt_paths = sorted(glob.glob('/mnt/fd67a3c7-ac13-4329-bdbb-bdad39a33bf1/Gouri/simulation_data/Sim1000/Dark/all/TrainSet/*mask.nii.gz'))
@@ -72,6 +73,7 @@ validationloader = DataLoader(validationset, batch_size=batch_size, shuffle=True
 encoder = SA_UNet_Encoder(out_channels=2).to(device)
 encoder.load_state_dict(torch.load(encoder_path), strict=False)
 projection_head = Projector(num_layers=4, layer_sizes=[64, 128, 256, 512]).to(device)
+projection_head.load_state_dict(torch.load(projector_path))
 
 projector_optimizer = optim.Adam([*encoder.parameters(), *projection_head.parameters()], lr = 0.001, eps = 0.0001)
 projection_criterion = VoxelwiseSupConLoss_inImage(device=device).to(device)
@@ -81,7 +83,7 @@ projection_validation_loss_list = []
 
 print()
 print('Training Proxy.')
-for epoch in range(1, number_of_epochs+1):
+for epoch in range(31, number_of_epochs+1):
 
     print()
     print(f'Epoch #{epoch}')
@@ -123,12 +125,14 @@ for epoch in range(1, number_of_epochs+1):
             loss.backward()
             projector_optimizer.step()
 
+            del brain_mask
             del projection
             del projection_loss
 
         del image
         del gt
         del to_projector
+        del _
     
     # print(prof.key_averages().table(sort_by="cuda_time_total"))
     # break
@@ -163,18 +167,20 @@ for epoch in range(1, number_of_epochs+1):
             projection_loss = projection_criterion(projection, gt, brain_mask=brain_mask)
             projection_validation_loss += projection_loss.item()
 
+            del brain_mask
             del projection
             del projection_loss
 
         del image
         del gt
         del to_projector
+        del _
 
     
     projection_validation_loss_list.append(projection_validation_loss / len(validationloader))
     print(f'Projection validation loss at epoch #{epoch}: {projection_validation_loss_list[-1]}')
 
-    np.save(f'./results/{projector_type}_{date}_losses.npy', [projection_train_loss_list, projection_validation_loss_list])
+    np.save(f'./results/{projector_type}_{date}_losses_after30.npy', [projection_train_loss_list, projection_validation_loss_list])
 
     if epoch % 10 == 0:
         torch.save(encoder.state_dict(), f'{save_model_path}{encoder_type}_{date}_state_dict{epoch}.pth')

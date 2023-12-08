@@ -157,70 +157,70 @@ class VGG3D_Encoder(nn.Module):
         super().__init__()
 
         self.enc_layer1 = nn.Sequential(
-            nn.Conv3d(input_channels, 32, kernel_size=3, stride=1, padding=1),
-            nn.BatchNorm3d(num_features=32),
-            nn.ReLU(inplace=True),
-            nn.Conv3d(32, 32, kernel_size=3, stride=1, padding=1),
-            nn.BatchNorm3d(num_features=32),
-            nn.ReLU(inplace=True),
-            nn.MaxPool3d(kernel_size=2, stride=2)
-        )
-
-        self.enc_layer2 = nn.Sequential(
-            nn.Conv3d(32, 64, kernel_size=3, stride=1, padding=1),
+            nn.Conv3d(input_channels, 64, kernel_size=3, stride=1, padding=1),
             nn.BatchNorm3d(num_features=64),
             nn.ReLU(inplace=True),
             nn.Conv3d(64, 64, kernel_size=3, stride=1, padding=1),
             nn.BatchNorm3d(num_features=64),
             nn.ReLU(inplace=True),
-            nn.MaxPool3d(kernel_size = 2, stride = 2)
+            nn.MaxPool3d(kernel_size=2, stride=2)
         )
 
-        self.enc_layer3 = nn.Sequential(
+        self.enc_layer2 = nn.Sequential(
             nn.Conv3d(64, 128, kernel_size=3, stride=1, padding=1),
             nn.BatchNorm3d(num_features=128),
             nn.ReLU(inplace=True),
             nn.Conv3d(128, 128, kernel_size=3, stride=1, padding=1),
             nn.BatchNorm3d(num_features=128),
-            nn.ReLU(inplace=True)
+            nn.ReLU(inplace=True),
+            nn.MaxPool3d(kernel_size = 2, stride = 2)
         )
 
-        self.enc_layer4 = nn.Sequential(
+        self.enc_layer3 = nn.Sequential(
             nn.Conv3d(128, 256, kernel_size=3, stride=1, padding=1),
             nn.BatchNorm3d(num_features=256),
             nn.ReLU(inplace=True),
-            nn.MaxPool3d(kernel_size = 2, stride = 2),
             nn.Conv3d(256, 256, kernel_size=3, stride=1, padding=1),
             nn.BatchNorm3d(num_features=256),
             nn.ReLU(inplace=True)
         )
 
-        self.enc_layer5 = nn.Sequential(
+        self.enc_layer4 = nn.Sequential(
             nn.Conv3d(256, 512, kernel_size=3, stride=1, padding=1),
             nn.BatchNorm3d(num_features=512),
             nn.ReLU(inplace=True),
+            nn.MaxPool3d(kernel_size = 2, stride = 2),
             nn.Conv3d(512, 512, kernel_size=3, stride=1, padding=1),
             nn.BatchNorm3d(num_features=512),
-            nn.ReLU(inplace=True),
-            nn.MaxPool3d(kernel_size = 2, stride = 2)
+            nn.ReLU(inplace=True)
         )
+
+        # self.enc_layer5 = nn.Sequential(
+            # nn.Conv3d(256, 512, kernel_size=3, stride=1, padding=1),
+            # nn.BatchNorm3d(num_features=512),
+            # nn.ReLU(inplace=True),
+            # nn.Conv3d(512, 512, kernel_size=3, stride=1, padding=1),
+            # nn.BatchNorm3d(num_features=512),
+            # nn.ReLU(inplace=True),
+            # nn.MaxPool3d(kernel_size = 2, stride = 2)
+        # )
 
     def forward(self, x):
         out1 = self.enc_layer1(x)
         out2 = self.enc_layer2(out1)
         out3 = self.enc_layer3(out2)
         out4 = self.enc_layer4(out3)
-        out5 = self.enc_layer5(out4)
+        # out5 = self.enc_layer5(out4)
 
         layer_list = [
             out1,
             out2,
             out3,
             out4,
-            out5
+            # out5
         ]
 
-        final_out = out5
+        final_out = out4
 
         return layer_list, final_out
     
@@ -350,7 +350,7 @@ class Projector(nn.Module):
         out = self.super_projection_head(stacked_out)
 
         if self.test:
-            return out, individual_out
+            return out, stacked_out
 
         return out
     

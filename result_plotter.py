@@ -9,12 +9,12 @@ import matplotlib.pyplot as plt
 # train_accuracy = np.concatenate([data_first[2, :28], data_second[2]])
 # validation_accuracy = np.concatenate([data_first[3, :28], data_second[3]])
 
-file_name = 'VGGproxy_classifier_weightedBCEpretrain_batch12_fixed_after50epoch_03_12_2023_accuracies'
-data = np.load(f'./results/{file_name}.npy')
+file_name = 'VGGproxy_weightedBCEPbatch12_then_VoxCFT_brainmask_then_IntegratedFT_05_12_2023_losses'
+data = np.load(f'./{file_name}.npy')
 print(data.shape)
 train_loss = data[0]
-validation_loss = data[1]
-train_accuracy = data[2]
+validation_loss = data[2]
+train_accuracy = data[1]
 validation_accuracy = data[3]
 
 print(f'\tTrain loss\t\tValidation loss\t\tTrain accuracy\t\tValidation accuracy')
