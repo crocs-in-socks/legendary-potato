@@ -1,49 +1,48 @@
 import torch
-import torch.nn as nn
-import torch.optim as optim
-from torchvision import transforms
 import torch.nn.functional as F
-from torch.utils.data import DataLoader, ConcatDataset, random_split
+from torch.utils.data import DataLoader
+
+from Utilities.Generic import Constants, load_dataset
 
 from ModelArchitecture.DUCK_Net import *
 from ModelArchitecture.Encoders import *
 from ModelArchitecture.UNet import *
 
-from ImageLoader.ImageLoader3D import ImageLoader3D
 from ModelArchitecture.Transformations import *
 from ModelArchitecture.Losses import *
 from ModelArchitecture.metrics import *
 
-import numpy as np
 from tqdm import tqdm
 
-batch_size = 1
-patience = 15
-num_workers = 16
-device = 'cuda:1'
-number_of_epochs = 100
-date = '05_12_2023'
+c = Constants(
+    batch_size = 1,
+    patience = None,
+    num_workers = 16,
+    num_epochs = None,
+    date = None,
+    to_save_folder = None,
+    to_load_folder = 'Dec06',
+    device = 'cuda:0',
+    proxy_type = None,
+    train_task = None,
+    to_load_encoder_path = 'UNETcopy_encoder_VoxCFT18000_randomBG_06_12_2023_state_dict40.pth',
+    to_load_projector_path = 'UNETcopy_projector_VoxCFT18000_randomBG_06_12_2023_state_dict40.pth',
+    to_load_classifier_path = 'UNETcopy_projector_VoxCFT18000_randomBG_06_12_2023_state_dict40.pth',
+    to_load_proxy_path = None,
+    dataset = 'wmh'
+)
 
-proxy_encoder_path = '/mnt/70b9cd2d-ce8a-4b10-bb6d-96ae6a51130a/LabData/models_retrained/experiments/Dec05/VGGproxy_weightedBCEPbatch12_then_VoxCFT_brainmask_then_IntegratedFT_encoder_noskip_05_12_2023_state_dict_best_score25.pth'
-proxy_projector_path = '/mnt/70b9cd2d-ce8a-4b10-bb6d-96ae6a51130a/LabData/models_retrained/experiments/Dec05/VGGproxy_weightedBCEPbatch12_then_VoxCFT_brainmask_then_IntegratedFT_projector_noskip_05_12_2023_state_dict_best_score25.pth'
+segmentation_path = './ModelArchitecture/unet_focal + dice_state_dict_best_loss28.pth'
 
-segmentation_path = './ModelArchitecture/unet_wts_proxy.pth'
+trainset, validationset, testset = load_dataset(c.dataset, c.drive, ToTensor3D(labeled=True))
+testloader = DataLoader(testset, batch_size=c.batch_size, shuffle=True, num_workers=c.num_workers)
 
-composed_transform = transforms.Compose([
-        ToTensor3D(labeled=True)
-    ])
+proxy_encoder = SA_UNet_Encoder(out_channels=2).to(c.device)
+proxy_encoder.load_state_dict(torch.load(c.to_load_encoder_path))
+proxy_projector = Projector(num_layers=4, layer_sizes=[ 64, 128, 256, 512], test=True).to(c.device)
+proxy_projector.load_state_dict(torch.load(c.to_load_projector_path))
 
-test_data = np.load('../wmh_indexes.npy', allow_pickle=True).item()
-testset = ImageLoader3D(paths=test_data['test_names'], gt_paths=None, json_paths=None, image_size=128, type_of_imgs='numpy', transform=composed_transform)
-
-testloader = DataLoader(testset, batch_size=batch_size, shuffle=True, num_workers=num_workers)
-
-proxy_encoder = VGG3D_Encoder(input_channels=1).to(device)
-proxy_encoder.load_state_dict(torch.load(proxy_encoder_path))
-proxy_projector = Projector(num_layers=5, layer_sizes=[32, 64, 128, 256, 512], test=True).to(device)
-proxy_projector.load_state_dict(torch.load(proxy_projector_path))
-
-segmentation_model = SA_UNet(out_channels=2).to(device)
+segmentation_model = SA_UNet(out_channels=2).to(c.device)
 segmentation_model.load_state_dict(torch.load(segmentation_path)['model_state_dict'], strict=False)
 
 test_loss = 0
@@ -59,14 +58,12 @@ print('Testing Integrated model.')
 
 for data_idx, data in enumerate(tqdm(testloader), 0):
     with torch.no_grad():
-        image = data['input'].to(device)
-        gt = data['gt'].to(device)
+        image = data['input'].to(c.device)
+        gt = data['gt'].to(c.device)
 
         to_projector, _ = proxy_encoder(image)
         combined_projection, projection_maps = proxy_projector(to_projector)
-        # combined_projection = combined_projection * -1
-        # for idx, map in enumerate(projection_maps):
-        #     projection_maps[idx] = map * -1
+        
         segmentation = segmentation_model(image, projection_maps)
 
         dice = Dice_Score(segmentation[:, 1].cpu().numpy(), gt[:,1].cpu().numpy())
@@ -84,7 +81,7 @@ for data_idx, data in enumerate(tqdm(testloader), 0):
         plt.imshow(gt[0, 1, :, :, 64].detach().cpu())
         plt.colorbar()
         plt.subplot(1, 4, 3)
-        plt.imshow(segmentation[0, 0, :, :, 64].detach().cpu())
+        plt.imshow(segmentation[0, 1, :, :, 64].detach().cpu())
         plt.colorbar()
         plt.subplot(1, 4, 4)
         plt.imshow(combined_projection[0, 0, :, :, 64].detach().cpu())

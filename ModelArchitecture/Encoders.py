@@ -350,9 +350,28 @@ class Projector(nn.Module):
         out = self.super_projection_head(stacked_out)
 
         if self.test:
-            return out, individual_out
-
+            return out, upsampled_out
         return out
+
+class IntegratedProjector(nn.Module):
+    def __init__(self, num_layers, layer_sizes, projected_channels=None):
+        super().__init__()
+        self.num_layers = num_layers
+
+        if projected_channels is None:
+            projected_channels = [1]*self.num_layers
+            # projected_channels = layer_sizes
+
+        self.projection_heads = nn.ModuleList([
+                nn.Sequential(
+                    nn.Conv3d(layer_sizes[idx], 1, kernel_size=1),
+                    nn.ReLU(inplace=True),
+                    nn.Conv3d(1, projected_channels[idx], kernel_size=1)
+                ) for idx in range(num_layers)
+            ])
+    
+    def forward(self, x):
+        return [self.projection_heads[idx](x[idx]) for idx in range(self.num_layers)]
     
 class DUCKproxy_Decoder(nn.Module):
     def __init__(self):

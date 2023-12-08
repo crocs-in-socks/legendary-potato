@@ -1,87 +1,58 @@
 import torch
-import torch.nn as nn
 import torch.optim as optim
-from torchvision import transforms
 import torch.nn.functional as F
-from torch.utils.data import DataLoader, ConcatDataset, random_split
+from torch.utils.data import DataLoader
+
+from Utilities.Generic import Constants, load_dataset
 
 from ModelArchitecture.DUCK_Net import *
 from ModelArchitecture.Encoders import *
 
-from ImageLoader.ImageLoader3D import ImageLoader3D
 from ModelArchitecture.Transformations import *
 from ModelArchitecture.Losses import *
 
-import glob
 import numpy as np
 from tqdm import tqdm
 
-### Constants
-batch_size = 1
-patience = 15
-num_workers = 16
-device = 'cuda:1'
-number_of_epochs = 100
-date = '05_12_2023'
-encoder_type = 'UNETproxy_encoder_weightedBCEPbatch8_then_VoxCFT18000_brainmask'
-projector_type = 'UNETproxy_projector_weightedBCEPbatch8_then_VoxCFT18000_brainmask'
+c = Constants(
+    batch_size = 1,
+    patience = 15,
+    num_workers = 16,
+    number_of_epochs = 100,
+    date = '06_12_2023',
+    to_save_folder = 'Dec06',
+    to_load_folder = 'pretrained',
+    device = 'cuda:1',
+    proxy_type = 'UNETcopy',
+    train_task = 'VoxCFT_wRandomBG',
+    to_load_encoder_path = 'unet_focal + dice_state_dict_best_loss28.pth',
+    to_load_projector_path = None,
+    to_load_classifier_path = None,
+    to_load_proxy_path = None,
+    dataset = 'wmh',
+)
 
-save_model_path = f'/mnt/fd67a3c7-ac13-4329-bdbb-bdad39a33bf1/LabData/models_retrained/experiments/Dec05_UNet/'
-encoder_path = '/mnt/fd67a3c7-ac13-4329-bdbb-bdad39a33bf1/LabData/models_retrained/experiments/Dec05_UNet/UNETproxy_classifier_weightedBCEpretrain_withLRScheduler_05_12_2023_state_dict_best_loss34.pth'
+trainset, validationset, testset = load_dataset(c.dataset, c.drive, ToTensor3D(labeled=True))
 
-Sim1000_train_data_paths = sorted(glob.glob('/mnt/fd67a3c7-ac13-4329-bdbb-bdad39a33bf1/Gouri/simulation_data/Sim1000/Dark/all/TrainSet/*FLAIR.nii.gz'))
-Sim1000_train_gt_paths = sorted(glob.glob('/mnt/fd67a3c7-ac13-4329-bdbb-bdad39a33bf1/Gouri/simulation_data/Sim1000/Dark/all/TrainSet/*mask.nii.gz'))
-Sim1000_train_json_paths = sorted(glob.glob('/mnt/fd67a3c7-ac13-4329-bdbb-bdad39a33bf1/Gouri/simulation_data/Sim1000/Dark/all/TrainSet/*.json'))
+trainloader = DataLoader(trainset, batch_size=c.batch_size, shuffle=True, num_workers=c.num_workers)
+validationloader = DataLoader(validationset, batch_size=c.batch_size, shuffle=True, num_workers=c.num_workers)
 
-Sim1000_validation_data_paths = sorted(glob.glob('/mnt/fd67a3c7-ac13-4329-bdbb-bdad39a33bf1/Gouri/simulation_data/Sim1000/Dark/all/ValSet/*FLAIR.nii.gz'))
-Sim1000_validation_gt_paths = sorted(glob.glob('/mnt/fd67a3c7-ac13-4329-bdbb-bdad39a33bf1/Gouri/simulation_data/Sim1000/Dark/all/ValSet/*mask.nii.gz'))
-Sim1000_validation_json_paths = sorted(glob.glob('/mnt/fd67a3c7-ac13-4329-bdbb-bdad39a33bf1/Gouri/simulation_data/Sim1000/Dark/all/ValSet/*.json'))
+encoder = SA_UNet_Encoder(out_channels=2).to(c.device)
+encoder.load_state_dict(torch.load(c.to_load_encoder_path)['model_state_dict'], strict=False)
+projection_head = Projector(num_layers=4, layer_sizes=[64, 128, 256, 512], test=True).to(c.device)
 
-sim2211_train_data_paths = sorted(glob.glob('/mnt/fd67a3c7-ac13-4329-bdbb-bdad39a33bf1/Gouri/simulation_data/Full_sim_22_11_23/Dark/**/TrainSet/*FLAIR.nii.gz'))
-sim2211_train_gt_paths = sorted(glob.glob('/mnt/fd67a3c7-ac13-4329-bdbb-bdad39a33bf1/Gouri/simulation_data/Full_sim_22_11_23/Dark/**/TrainSet/*mask.nii.gz'))
-sim2211_train_json_paths = sorted(glob.glob('/mnt/fd67a3c7-ac13-4329-bdbb-bdad39a33bf1/Gouri/simulation_data/Full_sim_22_11_23/Dark/**/TrainSet/*.json'))
+projector_optimizer = optim.Adam([*encoder.parameters(), *projection_head.parameters()], lr = 0.01, eps = 0.0001)
 
-sim2211_validation_data_paths = sorted(glob.glob('/mnt/fd67a3c7-ac13-4329-bdbb-bdad39a33bf1/Gouri/simulation_data/Full_sim_22_11_23/Dark/**/ValSet/*FLAIR.nii.gz'))
-sim2211_validation_gt_paths = sorted(glob.glob('/mnt/fd67a3c7-ac13-4329-bdbb-bdad39a33bf1/Gouri/simulation_data/Full_sim_22_11_23/Dark/**/ValSet/*mask.nii.gz'))
-sim2211_validation_json_paths = sorted(glob.glob('/mnt/fd67a3c7-ac13-4329-bdbb-bdad39a33bf1/Gouri/simulation_data/Full_sim_22_11_23/Dark/**/ValSet/*.json'))
+projector_scheduler = optim.lr_scheduler.ReduceLROnPlateau(projector_optimizer, mode='min', patience=5, factor=0.5, verbose=True)
 
-clean_data_paths = sorted(glob.glob('/mnt/fd67a3c7-ac13-4329-bdbb-bdad39a33bf1/LabData/NIMH/3d/*.anat*/*fast_restore.nii.gz*'))
-clean_gt_paths = sorted(glob.glob('/mnt/fd67a3c7-ac13-4329-bdbb-bdad39a33bf1/LabData/NIMH/3d/*.anat*/*seg_label.nii.gz*'))
-
-composed_transform = transforms.Compose([
-        ToTensor3D(labeled=True)
-    ])
-
-Sim1000_trainset = ImageLoader3D(paths=Sim1000_train_data_paths, gt_paths=Sim1000_train_gt_paths, json_paths=Sim1000_train_json_paths, image_size=128, type_of_imgs='nifty', transform=composed_transform)
-Sim1000_validationset = ImageLoader3D(paths=Sim1000_validation_data_paths, gt_paths=Sim1000_validation_gt_paths, json_paths=Sim1000_validation_json_paths, image_size=128, type_of_imgs='nifty', transform=composed_transform)
-
-sim2211_trainset = ImageLoader3D(paths=sim2211_train_data_paths, gt_paths=sim2211_train_gt_paths, json_paths=sim2211_train_json_paths, image_size=128, type_of_imgs='nifty', transform=composed_transform)
-sim2211_validationset = ImageLoader3D(paths=sim2211_validation_data_paths, gt_paths=sim2211_validation_gt_paths, json_paths=sim2211_validation_json_paths, image_size=128, type_of_imgs='nifty', transform=composed_transform)
-
-clean = ImageLoader3D(paths=clean_data_paths, gt_paths=clean_gt_paths, json_paths=None, image_size=128, type_of_imgs='nifty', transform=composed_transform)
-train_size = int(0.8 * len(clean))
-validation_size = len(clean) - train_size
-clean_trainset, clean_validationset = random_split(clean, (train_size, validation_size))
-
-trainset = ConcatDataset([Sim1000_trainset, sim2211_trainset, clean_trainset])
-validationset = ConcatDataset([Sim1000_validationset, sim2211_validationset, clean_validationset])
-
-trainloader = DataLoader(trainset, batch_size=batch_size, shuffle=True, num_workers=num_workers)
-validationloader = DataLoader(validationset, batch_size=batch_size, shuffle=True, num_workers=num_workers)
-
-encoder = SA_UNet_Encoder(out_channels=2).to(device)
-encoder.load_state_dict(torch.load(encoder_path), strict=False)
-projection_head = Projector(num_layers=4, layer_sizes=[64, 128, 256, 512]).to(device)
-
-projector_optimizer = optim.Adam([*encoder.parameters(), *projection_head.parameters()], lr = 0.001, eps = 0.0001)
-projection_criterion = VoxelwiseSupConLoss_inImage(device=device).to(device)
+projection_criterion = VoxelwiseSupConLoss_inImage(device=c.device).to(c.device)
 
 projection_train_loss_list = []
 projection_validation_loss_list = []
 
 print()
 print('Training Proxy.')
-for epoch in range(1, number_of_epochs+1):
+for epoch in range(1, c.num_epochs+1):
 
     print()
     print(f'Epoch #{epoch}')
@@ -100,35 +71,39 @@ for epoch in range(1, number_of_epochs+1):
 
     # with torch.autograd.profiler.profile(enabled=True, use_cuda=True) as prof:
 
-    for data in tqdm(trainloader):
-        image = data['input'].to(device)
-        gt = data['gt'].to(device)
+    for data_idx, data in tqdm(enumerate(trainloader)):
+        image = data['input'].to(c.device)
+        gt = data['gt'].to(c.device)
         # subtracted = data['subtracted'].to(device)
 
         to_projector, _ = encoder(image)
 
         if torch.unique(gt[:, 1]).shape[0] == 2:
-            brain_mask = torch.zeros_like(image)
-            brain_mask[image != 0] = 1
-            brain_mask = brain_mask.float().to(device)
+            # brain_mask = torch.zeros_like(image)
+            # brain_mask[image != 0] = 1
+            # brain_mask = brain_mask.float().to(device)
 
-            projection = projection_head(to_projector)
-            projection = F.interpolate(projection, size=(128, 128, 128))
+            _, stacked_projections = projection_head(to_projector)
+            projection = F.interpolate(stacked_projections, size=(128, 128, 128))
 
-            projection_loss = projection_criterion(projection, gt, brain_mask=brain_mask)
+            projection_loss = projection_criterion(projection, gt)
             projection_train_loss += projection_loss.item()
 
             projector_optimizer.zero_grad()
             loss = projection_loss
             loss.backward()
-            projector_optimizer.step()
 
             del projection
             del projection_loss
+            # del brain_mask
+
+        if (data_idx+1) % 6 == 0:
+            projector_optimizer.step()
 
         del image
         del gt
         del to_projector
+        del _
     
     # print(prof.key_averages().table(sort_by="cuda_time_total"))
     # break
@@ -146,44 +121,47 @@ for epoch in range(1, number_of_epochs+1):
     projection_validation_loss = 0
 
     for data in tqdm(validationloader):
-        image = data['input'].to(device)
-        gt = data['gt'].to(device)
+        image = data['input'].to(c.device)
+        gt = data['gt'].to(c.device)
         # subtracted = data['subtracted'].to(device)
 
         to_projector, _ = encoder(image)
 
         if torch.unique(gt[:, 1]).shape[0] == 2:
-            brain_mask = torch.zeros_like(image)
-            brain_mask[image != 0] = 1
-            brain_mask = brain_mask.float().to(device)
+            # brain_mask = torch.zeros_like(image)
+            # brain_mask[image != 0] = 1
+            # brain_mask = brain_mask.float().to(device)
 
-            projection = projection_head(to_projector)
-            projection = F.interpolate(projection, size=(128, 128, 128))
+            _, stacked_projections = projection_head(to_projector)
+            projection = F.interpolate(stacked_projections, size=(128, 128, 128))
 
-            projection_loss = projection_criterion(projection, gt, brain_mask=brain_mask)
+            projection_loss = projection_criterion(projection, gt)
             projection_validation_loss += projection_loss.item()
 
             del projection
             del projection_loss
+            # del brain_mask
 
         del image
         del gt
         del to_projector
-
+        del _
     
     projection_validation_loss_list.append(projection_validation_loss / len(validationloader))
     print(f'Projection validation loss at epoch #{epoch}: {projection_validation_loss_list[-1]}')
 
-    np.save(f'./results/{projector_type}_{date}_losses.npy', [projection_train_loss_list, projection_validation_loss_list])
+    projector_scheduler.step(projection_train_loss_list[-1])
+
+    np.save(f'./results/{c.projector_type}_{c.date}_losses.npy', [projection_train_loss_list, projection_validation_loss_list])
 
     if epoch % 10 == 0:
-        torch.save(encoder.state_dict(), f'{save_model_path}{encoder_type}_{date}_state_dict{epoch}.pth')
-        torch.save(projection_head.state_dict(), f'{save_model_path}{projector_type}_{date}_state_dict{epoch}.pth')
+        torch.save(encoder.state_dict(), f'{c.to_save_folder}{c.encoder_type}_{c.date}_state_dict{epoch}.pth')
+        torch.save(projection_head.state_dict(), f'{c.to_save_folder}{c.projector_type}_{c.date}_state_dict{epoch}.pth')
 
     print()
 
-torch.save(encoder.state_dict(), f'{save_model_path}{encoder_type}_{date}_state_dict{number_of_epochs+1}.pth')
-torch.save(projection_head.state_dict(), f'{save_model_path}{projector_type}_{date}_state_dict{number_of_epochs+1}.pth')
+torch.save(encoder.state_dict(), f'{c.to_save_folder}{c.encoder_type}_{c.date}_state_dict{c.num_epochs+1}.pth')
+torch.save(projection_head.state_dict(), f'{c.to_save_folder}{c.projector_type}_{c.date}_state_dict{c.num_epochs+1}.pth')
 
 print()
 print('Script executed.')

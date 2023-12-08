@@ -1,1 +1,3 @@
 ModelArchitecture/unet_wts_proxy.pth
+ModelArchitecture/unet_focal + dice_state_dict_best_loss28.pth
+ModelArchitecture/unet_focal + dice_state_dict_best_loss85.pth

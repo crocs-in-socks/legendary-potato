@@ -50,17 +50,23 @@ class ImageLoader3D(Dataset):
                 file.close()
 
         elif(self.type_of_imgs == 'numpy'):
-            full_f = np.load(self.paths[index])
-            image = full_f['data']
-            gt = full_f['label']
-            if self.clean:
-                clean = full_f['data_clean']
-            if self.subtracted:
-                subtracted = full_f['dilated_subtracted']
-            if self.json_paths:
-                with open(self.json_paths[index], 'r') as file:
-                    metadata = json.load(file)
-                file.close()
+
+            try:
+                full_f = np.load(self.paths[index])
+                image = full_f['data']
+                gt = full_f['label']
+                if self.clean:
+                    clean = full_f['data_clean']
+                if self.subtracted:
+                    subtracted = full_f['dilated_subtracted']
+                if self.json_paths:
+                    with open(self.json_paths[index], 'r') as file:
+                        metadata = json.load(file)
+                    file.close()
+            except Exception as e:
+                print(e)
+                print(self.paths[index])
+                exit(0)
 
         image, img_crop_para = self.tight_crop_data(image)
         if self.clean:

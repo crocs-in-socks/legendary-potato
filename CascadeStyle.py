@@ -5,8 +5,6 @@ from torchvision import transforms
 import torch.nn.functional as F
 from torch.utils.data import DataLoader
 
-from Utilities.Generic import Constants, load_dataset
-
 from ModelArchitecture.DUCK_Net import *
 from ModelArchitecture.Encoders import *
 from ModelArchitecture.UNet import *
@@ -19,39 +17,49 @@ from ModelArchitecture.metrics import *
 import numpy as np
 from tqdm import tqdm
 
-c = Constants(
-    batch_size = 1,
-    patience = 15,
-    num_workers = 16,
-    num_epochs = 100,
-    date = '07_12_2023',
-    to_save_folder = 'Dec07',
-    to_load_folder = 'pretrained',
-    device = 'cuda:0',
-    proxy_type = 'Integrated_RandomBGUNET',
-    train_task = 'Dice_&_Vox_FT',
-    to_load_encoder_path = 'unet_focal + dice_state_dict_best_loss85.pth',
-    to_load_projector_path = None,
-    to_load_classifier_path = None,
-    to_load_proxy_path = None,
-    dataset = 'wmh'
-)
+batch_size = 1
+patience = 15
+num_workers = 16
+device = 'cuda:1'
+number_of_epochs = 100
+date = '07_12_2023'
 
-trainset, validationset, testst = load_dataset(c.dataset, c.drive, ToTensor3D(labeled=True))
-trainloader = DataLoader(trainset, batch_size=c.batch_size, shuffle=True, num_workers=c.num_workers)
-validationloader = DataLoader(validationset, batch_size=c.batch_size, shuffle=True, num_workers=c.num_workers)
+proxy_type = 'randomBGUNET_CascadeStyle'
+proxy_encoder_type = 'randomBGUNET_CascadeStyle_encoder'
+proxy_projector_type = 'randomBGUNET_CascadeStyle_projector'
 
-proxy_encoder = SA_UNet_Encoder(out_channels=2).to(c.device)
-proxy_encoder.load_state_dict(torch.load(c.to_load_encoder_path)['model_state_dict'], strict=False)
+save_model_path = '/mnt/70b9cd2d-ce8a-4b10-bb6d-96ae6a51130a/LabData/models_retrained/experiments/Dec07/'
+# proxy_encoder_path = '/mnt/70b9cd2d-ce8a-4b10-bb6d-96ae6a51130a/LabData/models_retrained/experiments/Dec06/UNETcopy_encoder_VoxCFT18000_randomBG_06_12_2023_state_dict40.pth'
+# proxy_projector_path = '/mnt/70b9cd2d-ce8a-4b10-bb6d-96ae6a51130a/LabData/models_retrained/experiments/Dec06/UNETcopy_projector_VoxCFT18000_randomBG_06_12_2023_state_dict40.pth'
 
-proxy_projector = IntegratedProjector(num_layers=4, layer_sizes=[64, 128, 256, 512]).to(c.device)
+segmentation_path = './ModelArchitecture/unet_focal + dice_state_dict_best_loss85.pth'
+proxy_encoder_path = './ModelArchitecture/unet_focal + dice_state_dict_best_loss85.pth'
 
-segmentation_model = SA_UNet(out_channels=2).to(c.device)
-segmentation_model.load_state_dict(torch.load(c.to_load_encoder_path)['model_state_dict'], strict=False)
+composed_transform = transforms.Compose([
+        ToTensor3D(labeled=True)
+    ])
 
-num_voxels = 16000
-segmentation_criterion = DiceLoss().to(c.device)
-proxy_critertion = VoxelwiseSupConLoss_inImage(device=c.device, num_voxels=num_voxels).to(c.device)
+data = np.load('../wmh_indexes.npy', allow_pickle=True).item()
+trainset = ImageLoader3D(paths=data['train_names'], gt_paths=None, json_paths=None, image_size=128, type_of_imgs='numpy', transform=composed_transform)
+
+validationset = ImageLoader3D(paths=data['val_names'], gt_paths=None, json_paths=None, image_size=128, type_of_imgs='numpy', transform=composed_transform)
+
+testset = ImageLoader3D(paths=data['test_names'], gt_paths=None, json_paths=None, image_size=128, type_of_imgs='numpy', transform=composed_transform)
+
+trainloader = DataLoader(trainset, batch_size=batch_size, shuffle=True, num_workers=num_workers)
+validationloader = DataLoader(validationset, batch_size=batch_size, shuffle=True, num_workers=num_workers)
+
+proxy_encoder = SA_UNet_Encoder(out_channels=2).to(device)
+proxy_encoder.load_state_dict(torch.load(proxy_encoder_path)['model_state_dict'], strict=False)
+
+proxy_projector = Projector(num_layers=4, layer_sizes=[64, 128, 256, 512], test=True).to(device)
+
+segmentation_model = SA_UNet(out_channels=2).to(device)
+segmentation_model.load_state_dict(torch.load(segmentation_path)['model_state_dict'], strict=False)
+
+num_voxels = 10500
+segmentation_criterion = DiceLoss().to(device)
+proxy_critertion = VoxelwiseSupConLoss_inImage(device=device, num_voxels=num_voxels).to(device)
 
 proxy_optimizer = optim.Adam([*proxy_encoder.parameters(), *proxy_projector.parameters()], lr = 0.0001, eps = 0.0001)
 
@@ -70,9 +78,9 @@ validation_dice_score_list = []
 validation_f1_accuracy_list = []
 
 print()
-print('Finetuning Integrated model.')
+print('Training Cascade Style.')
 
-for epoch in range(1, c.num_epochs+1):
+for epoch in range(1, number_of_epochs+1):
     
     print()
     print(f'Epoch #{epoch}')
@@ -88,13 +96,13 @@ for epoch in range(1, c.num_epochs+1):
     train_f1_accuracy = 0
 
     for data in tqdm(trainloader):
-        image = data['input'].to(c.device)
-        gt = data['gt'].to(c.device)
+        image = data['input'].to(device)
+        gt = data['gt'].to(device)
 
         to_projector, _ = proxy_encoder(image)
         # _, projection_maps = proxy_projector(to_projector)
-        projection_maps = proxy_projector(to_projector)
-        segmentation = segmentation_model(image, projection_maps)
+        final_out, projection_maps = proxy_projector(to_projector)
+        segmentation = segmentation_model(final_out, projection_maps)
 
         projection_maps = [F.interpolate(projection_map, size=(128, 128, 128), mode='trilinear') for projection_map in projection_maps]
         projection_maps = torch.cat(projection_maps, dim=1)
@@ -116,6 +124,7 @@ for epoch in range(1, c.num_epochs+1):
         train_f1_accuracy += f1_acc.item()
 
         del image
+        del final_out
         del gt
         del to_projector
         del projection_maps
@@ -143,13 +152,13 @@ for epoch in range(1, c.num_epochs+1):
 
     for idx, data in enumerate(tqdm(validationloader), 0):
         with torch.no_grad():
-            image = data['input'].to(c.device)
-            gt = data['gt'].to(c.device)
+            image = data['input'].to(device)
+            gt = data['gt'].to(device)
 
             to_projector, _ = proxy_encoder(image)
             # _, projection_maps = proxy_projector(to_projector)
-            projection_maps = proxy_projector(to_projector)
-            segmentation = segmentation_model(image, projection_maps)
+            final_out, projection_maps = proxy_projector(to_projector)
+            segmentation = segmentation_model(final_out, projection_maps)
 
             # projection_maps = [F.interpolate(projection_map, size=(128, 128, 128), mode='trilinear') for projection_map in projection_maps]
             # projection_maps = torch.cat(projection_maps, dim=1)
@@ -172,19 +181,19 @@ for epoch in range(1, c.num_epochs+1):
 
     proxy_scheduler.step(validation_dice_score_list[-1])
 
-    np.save(f'./results/{c.proxy_type}_{c.date}_losses.npy', [train_dice_score_list, train_f1_accuracy_list, validation_dice_score_list, validation_f1_accuracy_list])
+    np.save(f'./results/{proxy_type}_{date}_losses.npy', [train_dice_score_list, train_f1_accuracy_list, validation_dice_score_list, validation_f1_accuracy_list])
     
     if best_validation_score is None:
         best_validation_score = validation_dice_score_list[-1]
     elif validation_dice_score_list[-1] > best_validation_score:
         patience = 15
         best_validation_score = validation_dice_score_list[-1]
-        torch.save(proxy_encoder.state_dict(), f'{c.to_save_folder}{c.encoder_type}_{c.date}_state_dict_best_score{epoch}.pth')
-        torch.save(proxy_projector.state_dict(), f'{c.to_save_folder}{c.projector_type}_{c.date}_state_dict_best_score{epoch}.pth')
+        torch.save(proxy_encoder.state_dict(), f'{save_model_path}{proxy_encoder_type}_{date}_state_dict_best_score{epoch}.pth')
+        torch.save(proxy_projector.state_dict(), f'{save_model_path}{proxy_projector_type}_{date}_state_dict_best_score{epoch}.pth')
 
     if epoch % 10 == 0:
-        torch.save(proxy_encoder.state_dict(), f'{c.to_save_folder}{c.encoder_type}_{c.date}_state_dict{epoch}.pth')
-        torch.save(proxy_projector.state_dict(), f'{c.to_save_folder}{c.projector_type}_{c.date}_state_dict{epoch}.pth')
+        torch.save(proxy_encoder.state_dict(), f'{save_model_path}{proxy_encoder_type}_{date}_state_dict{epoch}.pth')
+        torch.save(proxy_projector.state_dict(), f'{save_model_path}{proxy_projector_type}_{date}_state_dict{epoch}.pth')
 
 print()
 print('Script executed.')
