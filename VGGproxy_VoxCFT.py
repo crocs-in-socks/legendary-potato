@@ -32,6 +32,8 @@ c = Constants(
     dataset = 'simulated_lesions_on_brain_with_clean',
 )
 
+num_voxels = 10500
+
 trainset, validationset, testset = load_dataset(c.dataset, c.drive, ToTensor3D(labeled=True))
 trainloader = DataLoader(trainset, batch_size=c.batch_size, shuffle=True, num_workers=c.num_workers)
 validationloader = DataLoader(validationset, batch_size=c.batch_size, shuffle=True, num_workers=c.num_workers)
@@ -82,10 +84,10 @@ for epoch in range(1, c.num_epochs+1):
             brain_mask[image != 0] = 1
             brain_mask = brain_mask.float().to(c.device)
 
-            projection = projection_head(to_projector)
-            projection = F.interpolate(projection, size=(128, 128, 128))
+            projection, stacked = projection_head(to_projector)
+            projection = F.interpolate(stacked, size=(128, 128, 128))
 
-            projection_loss = projection_criterion(projection, gt, brain_mask=brain_mask)
+            projection_loss = (projection_criterion(projection, gt) / num_voxels)
             projection_train_loss += projection_loss.item()
 
             projector_optimizer.zero_grad()
@@ -130,10 +132,10 @@ for epoch in range(1, c.num_epochs+1):
             brain_mask[image != 0] = 1
             brain_mask = brain_mask.float().to(c.device)
 
-            projection = projection_head(to_projector)
-            projection = F.interpolate(projection, size=(128, 128, 128))
+            projection, stacked = projection_head(to_projector)
+            projection = F.interpolate(stacked, size=(128, 128, 128))
 
-            projection_loss = projection_criterion(projection, gt, brain_mask=brain_mask)
+            projection_loss = (projection_criterion(projection, gt) / num_voxels)
             projection_validation_loss += projection_loss.item()
 
             del projection

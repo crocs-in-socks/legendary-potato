@@ -124,7 +124,7 @@ for epoch in range(1, c.num_epochs+1):
 
         classification_loss = classification_criterion(prediction, oneHot_label)
         classification_validation_loss += classification_loss.item()
-        validation_accuracy += determine_class_accuracy(prediction, oneHot_label).cpu()
+        validation_accuracy += determine_multiclass_accuracy(prediction, oneHot_label).cpu()
 
         del image
         del oneHot_label

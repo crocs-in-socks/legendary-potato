@@ -41,10 +41,7 @@ encoder = SA_UNet_Encoder(out_channels=2).to(c.device)
 encoder.load_state_dict(torch.load(c.to_load_encoder_path)['model_state_dict'], strict=False)
 projection_head = Projector(num_layers=4, layer_sizes=[64, 128, 256, 512], test=True).to(c.device)
 
-projector_optimizer = optim.Adam([*encoder.parameters(), *projection_head.parameters()], lr = 0.01, eps = 0.0001)
-
-projector_scheduler = optim.lr_scheduler.ReduceLROnPlateau(projector_optimizer, mode='min', patience=5, factor=0.5, verbose=True)
-
+projector_optimizer = optim.Adam([*encoder.parameters(), *projection_head.parameters()], lr = 0.001, eps = 0.0001)
 projection_criterion = VoxelwiseSupConLoss_inImage(device=c.device).to(c.device)
 
 projection_train_loss_list = []
@@ -103,7 +100,6 @@ for epoch in range(1, c.num_epochs+1):
         del image
         del gt
         del to_projector
-        del _
     
     # print(prof.key_averages().table(sort_by="cuda_time_total"))
     # break
@@ -138,6 +134,7 @@ for epoch in range(1, c.num_epochs+1):
             projection_loss = projection_criterion(projection, gt)
             projection_validation_loss += projection_loss.item()
 
+
             del projection
             del projection_loss
             # del brain_mask
@@ -145,12 +142,10 @@ for epoch in range(1, c.num_epochs+1):
         del image
         del gt
         del to_projector
-        del _
+
     
     projection_validation_loss_list.append(projection_validation_loss / len(validationloader))
     print(f'Projection validation loss at epoch #{epoch}: {projection_validation_loss_list[-1]}')
-
-    projector_scheduler.step(projection_train_loss_list[-1])
 
     np.save(f'./results/{c.projector_type}_{c.date}_losses.npy', [projection_train_loss_list, projection_validation_loss_list])
 
