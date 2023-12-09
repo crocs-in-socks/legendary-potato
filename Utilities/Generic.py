@@ -56,6 +56,7 @@ def load_dataset(name: str, drive: str, transform: transforms.Compose, verbose: 
 
     dataset_names = {
         'wmh' : _load_wmh,
+        'simulated_lesions_on_noise_background': _load_simulated_lesions_on_noise_background,
         'simulated_lesions_on_brain_with_clean': _load_simulated_lesions_on_brain_with_clean,
     }
 
@@ -75,6 +76,25 @@ def _load_wmh(drive, transform):
     testset = ImageLoader3D(paths=data['test_names'], gt_paths=None, json_paths=None, image_size=128, type_of_imgs='numpy', transform=transform)
 
     return trainset, validationset, testset
+
+def _load_simulated_lesions_on_noise_background(drive, transform):
+    Noise_train_data_paths = sorted(glob.glob('/mnt/fd67a3c7-ac13-4329-bdbb-bdad39a33bf1/Gouri/simulation_data/Noise_sim_30_11_23/all/TrainSet/*FLAIR.nii.gz'))
+    Noise_train_gt_paths = sorted(glob.glob('/mnt/fd67a3c7-ac13-4329-bdbb-bdad39a33bf1/Gouri/simulation_data/Noise_sim_30_11_23/all/TrainSet/*mask.nii.gz'))
+    Noise_train_json_paths = sorted(glob.glob('/mnt/fd67a3c7-ac13-4329-bdbb-bdad39a33bf1/Gouri/simulation_data/Noise_sim_30_11_23/all/TrainSet/*.json'))
+
+    Noise_validation_data_paths = sorted(glob.glob('/mnt/fd67a3c7-ac13-4329-bdbb-bdad39a33bf1/Gouri/simulation_data/Noise_sim_30_11_23/all/ValSet/*FLAIR.nii.gz'))
+    Noise_validation_gt_paths = sorted(glob.glob('/mnt/fd67a3c7-ac13-4329-bdbb-bdad39a33bf1/Gouri/simulation_data/Noise_sim_30_11_23/all/ValSet/*mask.nii.gz'))
+    Noise_validation_json_paths = sorted(glob.glob('/mnt/fd67a3c7-ac13-4329-bdbb-bdad39a33bf1/Gouri/simulation_data/Noise_sim_30_11_23/all/ValSet/*.json'))
+
+    Noise_test_data_paths = sorted(glob.glob('/mnt/fd67a3c7-ac13-4329-bdbb-bdad39a33bf1/Gouri/simulation_data/Noise_sim_30_11_23/all/TestSet/*FLAIR.nii.gz'))
+    Noise_test_gt_paths = sorted(glob.glob('/mnt/fd67a3c7-ac13-4329-bdbb-bdad39a33bf1/Gouri/simulation_data/Noise_sim_30_11_23/all/TestSet/*mask.nii.gz'))
+    Noise_test_json_paths = sorted(glob.glob('/mnt/fd67a3c7-ac13-4329-bdbb-bdad39a33bf1/Gouri/simulation_data/Noise_sim_30_11_23/all/TestSet/*.json'))    
+
+    trainset = ImageLoader3D(paths=Noise_train_data_paths, gt_paths=Noise_train_gt_paths, json_paths=Noise_train_json_paths, image_size=128, type_of_imgs='nifty', transform=transform)
+    validationset = ImageLoader3D(paths=Noise_validation_data_paths, gt_paths=Noise_validation_gt_paths, json_paths=Noise_validation_json_paths, image_size=128, type_of_imgs='nifty', transform=transform)
+
+    return trainset, validationset, testset
+
 
 def _load_simulated_lesions_on_brain_with_clean(drive, transform):
 

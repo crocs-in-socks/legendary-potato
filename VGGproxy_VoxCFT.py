@@ -32,8 +32,6 @@ c = Constants(
     dataset = 'simulated_lesions_on_brain_with_clean',
 )
 
-num_voxels = 10500
-
 trainset, validationset, testset = load_dataset(c.dataset, c.drive, ToTensor3D(labeled=True))
 trainloader = DataLoader(trainset, batch_size=c.batch_size, shuffle=True, num_workers=c.num_workers)
 validationloader = DataLoader(validationset, batch_size=c.batch_size, shuffle=True, num_workers=c.num_workers)
@@ -43,7 +41,8 @@ encoder.load_state_dict(torch.load(c.to_load_encoder_path))
 projection_head = Projector(num_layers=5, layer_sizes=[32, 64, 128, 256, 512]).to(c.device)
 
 projector_optimizer = optim.Adam([*encoder.parameters(), *projection_head.parameters()], lr = 0.001, eps = 0.0001)
-projection_criterion = VoxelwiseSupConLoss_inImage(device=c.device).to(c.device)
+num_voxels = 10500
+projection_criterion = VoxelwiseSupConLoss_inImage(device=c.device, num_voxels=num_voxels).to(c.device)
 
 projection_train_loss_list = []
 projection_validation_loss_list = []

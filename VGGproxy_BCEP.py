@@ -17,12 +17,12 @@ import numpy as np
 from tqdm import tqdm
 
 c = Constants(
-    batch_size = 12,
+    batch_size = 8,
     patience = 15,
     num_workers = 12,
     number_of_epochs = 100,
-    date = '05_12_2023',
-    to_save_folder = 'Dec05',
+    date = '08_12_2023',
+    to_save_folder = 'Dec08',
     to_load_folder = None,
     device = 'cuda:1',
     proxy_type = 'VGGproxy',
