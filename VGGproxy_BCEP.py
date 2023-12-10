@@ -12,13 +12,12 @@ from ModelArchitecture.Encoders import *
 from ModelArchitecture.Transformations import *
 from ModelArchitecture.Losses import *
 
-import glob
 import numpy as np
 from tqdm import tqdm
 
 c = Constants(
     batch_size = 8,
-    patience = 15,
+    patience = 5,
     num_workers = 12,
     number_of_epochs = 100,
     date = '08_12_2023',
@@ -31,7 +30,7 @@ c = Constants(
     to_load_projector_path = None,
     to_load_classifier_path = None,
     to_load_proxy_path = None,
-    dataset = 'simulated_lesions_on_brain_with_clean',
+    dataset = 'simulated_lesions_on_noise_background',
 )
 
 trainset, validationset, testset = load_dataset(c.dataset, c.drive, ToTensor3D(labeled=True))
@@ -43,7 +42,7 @@ classification_head = Classifier(input_channels=4096, output_channels=5, pooling
 
 classifier_optimizer = optim.Adam([*encoder.parameters(), *classification_head.parameters()], lr = 0.0001, eps = 0.0001)
 
-classifier_scheduler = optim.lr_scheduler.ReduceLROnPlateau(classifier_optimizer, mode='min', patience=10, factor=0.1, verbose=True)
+classifier_scheduler = optim.lr_scheduler.ReduceLROnPlateau(classifier_optimizer, mode='min', patience=c.patience, factor=0.5, verbose=True)
 
 class_weights = torch.tensor([1, 2, 2, 1, 1]).float().to(c.device)
 classification_criterion = nn.BCELoss(weight=class_weights).to(c.device)
@@ -103,7 +102,7 @@ for epoch in range(1, c.num_epochs+1):
     classification_train_loss_list.append(classification_train_loss / len(trainloader))
     train_accuracy_list.append(train_accuracy / len(trainloader))
     print(f'Classification train loss at epoch #{epoch}: {classification_train_loss_list[-1]}')
-    print(f'Train accuracy at epoch #{epoch}: {train_accuracy_list[-1]}')
+    print(f'Classification train accuracy at epoch #{epoch}: {train_accuracy_list[-1]}')
 
     print()
     torch.cuda.empty_cache()
@@ -136,7 +135,7 @@ for epoch in range(1, c.num_epochs+1):
     classification_validation_loss_list.append(classification_validation_loss / len(validationloader))
     validation_accuracy_list.append(validation_accuracy / len(validationloader))
     print(f'Classification validation loss at epoch #{epoch}: {classification_validation_loss_list[-1]}')
-    print(f'Validation accuracy at epoch #{epoch}: {validation_accuracy_list[-1]}')
+    print(f'Classification validation accuracy at epoch #{epoch}: {validation_accuracy_list[-1]}')
 
     np.save(f'./results/{c.classifier_type}_{c.date}_accuracies.npy', [classification_train_loss_list, classification_validation_loss_list, train_accuracy_list, validation_accuracy_list])
 
@@ -145,19 +144,18 @@ for epoch in range(1, c.num_epochs+1):
     if best_validation_loss is None:
         best_validation_loss = classification_validation_loss_list[-1]
     elif classification_validation_loss_list[-1] < best_validation_loss:
-        patience = 15
         best_validation_loss = classification_validation_loss_list[-1]
-        torch.save(encoder.state_dict(), f'{c.to_save_folder}{c.encoder_type}_{c.date}_state_dict_best_loss{epoch}.pth')
-        torch.save(classification_head.state_dict(), f'{c.to_save_folder}{c.classifier_type}_{c.date}_state_dict_best_loss{epoch}.pth')
+        torch.save(encoder.state_dict(), f'{c.model_save_path}{c.encoder_type}_{c.date}_state_dict_best_loss{epoch}.pth')
+        torch.save(classification_head.state_dict(), f'{c.model_save_path}{c.classifier_type}_{c.date}_state_dict_best_loss{epoch}.pth')
 
     if epoch % 10 == 0:
-        torch.save(encoder.state_dict(), f'{c.to_save_folder}{c.encoder_type}_{c.date}_state_dict{epoch}.pth')
-        torch.save(classification_head.state_dict(), f'{c.to_save_folder}{c.classifier_type}_{c.date}_state_dict{epoch}.pth')
+        torch.save(encoder.state_dict(), f'{c.model_save_path}{c.encoder_type}_{c.date}_state_dict{epoch}.pth')
+        torch.save(classification_head.state_dict(), f'{c.model_save_path}{c.classifier_type}_{c.date}_state_dict{epoch}.pth')
 
     print()
 
-torch.save(encoder.state_dict(), f'{c.to_save_folder}{c.encoder_type}_{c.date}_state_dict{c.num_epochs+1}.pth')
-torch.save(classification_head.state_dict(), f'{c.to_save_folder}{c.classifier_type}_{c.date}_state_dict{c.num_epochs+1}.pth')
+torch.save(encoder.state_dict(), f'{c.model_save_path}{c.encoder_type}_{c.date}_state_dict{c.num_epochs+1}.pth')
+torch.save(classification_head.state_dict(), f'{c.model_save_path}{c.classifier_type}_{c.date}_state_dict{c.num_epochs+1}.pth')
 
 print()
 print('Script executed.')

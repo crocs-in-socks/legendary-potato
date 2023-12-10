@@ -56,6 +56,7 @@ def load_dataset(name: str, drive: str, transform: transforms.Compose, verbose: 
 
     dataset_names = {
         'wmh' : _load_wmh,
+        'simulated_lesions_on_brain': _load_simulated_lesions_on_brain,
         'simulated_lesions_on_noise_background': _load_simulated_lesions_on_noise_background,
         'simulated_lesions_on_brain_with_clean': _load_simulated_lesions_on_brain_with_clean,
     }
@@ -65,6 +66,27 @@ def load_dataset(name: str, drive: str, transform: transforms.Compose, verbose: 
         print('\nDataset loaded.\n')
     return dataset_names[name](drive, transform)
 
+def _load_simulated_lesions_on_brain(drive, transform):
+
+    sim2211_train_data_paths = sorted(glob.glob(f'/mnt/{drive}/Gouri/simulation_data/Full_sim_22_11_23/Dark/*size*/TrainSet/*FLAIR.nii.gz'))
+    sim2211_train_gt_paths = sorted(glob.glob(f'/mnt/{drive}/Gouri/simulation_data/Full_sim_22_11_23/Dark/*size*/TrainSet/*mask.nii.gz'))
+    sim2211_train_json_paths = sorted(glob.glob(f'/mnt/{drive}/Gouri/simulation_data/Full_sim_22_11_23/Dark/*size*/TrainSet/*.json'))
+
+    sim2211_validation_data_paths = sorted(glob.glob(f'/mnt/{drive}/Gouri/simulation_data/Full_sim_22_11_23/Dark/*size*/ValSet/*FLAIR.nii.gz'))
+    sim2211_validation_gt_paths = sorted(glob.glob(f'/mnt/{drive}/Gouri/simulation_data/Full_sim_22_11_23/Dark/**/ValSet/*mask.nii.gz'))
+    sim2211_validation_json_paths = sorted(glob.glob(f'/mnt/{drive}/Gouri/simulation_data/Full_sim_22_11_23/Dark/*size*/ValSet/*.json'))
+
+    sim2211_test_data_paths = sorted(glob.glob(f'/mnt/{drive}/Gouri/simulation_data/Full_sim_22_11_23/Dark/*size*/TestSet/*FLAIR.nii.gz'))
+    sim2211_test_gt_paths = sorted(glob.glob(f'/mnt/{drive}/Gouri/simulation_data/Full_sim_22_11_23/Dark/*size*/TestSet/*mask.nii.gz'))
+    sim2211_test_json_paths = sorted(glob.glob(f'/mnt/{drive}/Gouri/simulation_data/Full_sim_22_11_23/Dark/*size*/TestSet/*.json'))
+
+    sim2211_trainset = ImageLoader3D(paths=sim2211_train_data_paths, gt_paths=sim2211_train_gt_paths, json_paths=sim2211_train_json_paths, image_size=128, type_of_imgs='nifty', transform=transform)
+
+    sim2211_validationset = ImageLoader3D(paths=sim2211_validation_data_paths, gt_paths=sim2211_validation_gt_paths, json_paths=sim2211_validation_json_paths, image_size=128, type_of_imgs='nifty', transform=transform)
+
+    sim2211_testset = ImageLoader3D(paths=sim2211_test_data_paths, gt_paths=sim2211_test_gt_paths, json_paths=sim2211_test_json_paths, image_size=128, type_of_imgs='nifty', transform=transform)
+
+    return sim2211_trainset, sim2211_validationset, sim2211_testset
 
 def _load_wmh(drive, transform):
 
@@ -92,6 +114,7 @@ def _load_simulated_lesions_on_noise_background(drive, transform):
 
     trainset = ImageLoader3D(paths=Noise_train_data_paths, gt_paths=Noise_train_gt_paths, json_paths=Noise_train_json_paths, image_size=128, type_of_imgs='nifty', transform=transform)
     validationset = ImageLoader3D(paths=Noise_validation_data_paths, gt_paths=Noise_validation_gt_paths, json_paths=Noise_validation_json_paths, image_size=128, type_of_imgs='nifty', transform=transform)
+    testset = ImageLoader3D(paths=Noise_test_data_paths, gt_paths=Noise_test_gt_paths, json_paths=Noise_test_json_paths, image_size=128, type_of_imgs='nifty', transform=transform)
 
     return trainset, validationset, testset
 
