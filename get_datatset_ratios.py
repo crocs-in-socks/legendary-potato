@@ -9,7 +9,6 @@ from ModelArchitecture.Encoders import *
 from ModelArchitecture.Transformations import *
 from ModelArchitecture.Losses import *
 
-import numpy as np
 from tqdm import tqdm
 
 c = Constants(
@@ -23,11 +22,11 @@ c = Constants(
     device = 'cuda:1',
     proxy_type = None,
     train_task = None,
-    to_load_encoder_path = 'VGGproxy_weightedBCE_wLRScheduler_simulated_lesions_on_brain_encoder_08_12_2023_state_dict_best_loss80.pth',
-    to_load_projector_path = None,
-    to_load_classifier_path = 'VGGproxy_weightedBCE_wLRScheduler_simulated_lesions_on_brain_classifier_08_12_2023_state_dict_best_loss80.pth',
-    to_load_proxy_path = None,
-    dataset = 'brats',
+    encoder_load_path = 'VGGproxy_weightedBCE_wLRScheduler_simulated_lesions_on_brain_encoder_08_12_2023_state_dict_best_loss80.pth',
+    projector_load_path = None,
+    classifier_load_path = 'VGGproxy_weightedBCE_wLRScheduler_simulated_lesions_on_brain_classifier_08_12_2023_state_dict_best_loss80.pth',
+    proxy_load_path = None,
+    dataset = 'wmh',
 )
 
 trainset, validationset, testset = load_dataset(c.dataset, c.drive, ToTensor3D(labeled=True))

@@ -34,7 +34,7 @@ class Constants:
         self.segmentor_type = f'{self.proxy_type}_{self.train_task}_segmentor'
         self.classifier_type = f'{self.proxy_type}_{self.train_task}_classifier'
 
-        self.to_save_folder = f'/mnt/{self.drive}/LabData/models_retrained/experiments/{self.to_save_folder}/'
+        self.to_save_folder = f'/mnt/{self.drive}/LabData/models_retrained/experiments/{self.to_save_folder}/' if self.to_save_folder else None
 
         self.encoder_load_path = f'/mnt/{self.drive}/LabData/models_retrained/experiments/{self.to_load_folder}/{self.encoder_load_path}' if self.encoder_load_path else None
 

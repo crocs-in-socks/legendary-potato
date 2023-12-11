@@ -17,21 +17,21 @@ import numpy as np
 from tqdm import tqdm
 
 c = Constants(
-    batch_size = 1,
+    batch_size = 2,
     patience = 10,
     num_workers = 16,
     num_epochs = 100,
     date = '11_12_2023',
-    to_save_folder = 'Dec11',
+    to_save_folder = 'Dec11_reverse',
     to_load_folder = None,
     device = 'cuda:1',
-    proxy_type = 'Integrated_Unet_&_VGGproxy_tandem',
-    train_task = 'seg_&_proxy(classifier)_simulated_brain_bg_>_wmh_ratiod_simulated_brain_bg',
+    proxy_type = 'Integrated_Unet_&_VGGproxy_tandem_(segmentation_>_proxy)_pat10',
+    train_task = 'seg_&_proxy(classifier)_simulated_brain_bg_>_real_wmh_ratiod_wrt_wmh_simulated_brain_bg',
     encoder_load_path = None,
     projector_load_path = None,
     classifier_load_path = None,
     proxy_load_path = None,
-    dataset = 'sim_2211_ratios:0_10_12_14+sim_2211_wmh'
+    dataset = 'sim_2211_ratios:72_80_18_17+wmh'
 )
 
 trainset, validationset, testset = load_dataset(c.dataset, c.drive, ToTensor3D(labeled=True))
@@ -39,17 +39,20 @@ trainloader = DataLoader(trainset, batch_size=c.batch_size, shuffle=True, num_wo
 validationloader = DataLoader(validationset, batch_size=c.batch_size, shuffle=True, num_workers=c.num_workers)
 
 proxy_encoder = VGG3D_Encoder(input_channels=1).to(c.device)
-proxy_encoder.load_state_dict(torch.load('/mnt/fd67a3c7-ac13-4329-bdbb-bdad39a33bf1/LabData/models_retrained/experiments/Dec08/VGGproxy_weightedBCE_wLRScheduler_encoder_08_12_2023_state_dict_best_loss53.pth'))
+proxy_encoder.load_state_dict(torch.load(f'/mnt/{c.drive}/LabData/models_retrained/experiments/Dec08/VGGproxy_weightedBCE_wLRScheduler_simulated_lesions_on_brain_encoder_08_12_2023_state_dict_best_loss80.pth'))
 
 proxy_projector = IntegratedProjector(num_layers=4, layer_sizes=[64, 128, 256, 512]).to(c.device)
 
 segmentation_model = SA_UNet(out_channels=2).to(c.device)
-segmentation_model.load_state_dict(torch.load('/mnt/fd67a3c7-ac13-4329-bdbb-bdad39a33bf1/LabData/models_retrained/segmentation_models/unet_focal + dice_state_dict_best_loss85.pth')['model_state_dict'], strict=False)
+segmentation_model.load_state_dict(torch.load(f'/mnt/{c.drive}/LabData/models_retrained/segmentation_models/unet_focal + dice_state_dict_best_loss85.pth')['model_state_dict'], strict=False)
 
 criterion = DiceLoss().to(c.device)
 
 segmentation_optimizer = optim.Adam(segmentation_model.parameters(), lr = 0.0001, eps = 0.0001)
 proxy_optimizer = optim.Adam([*proxy_encoder.parameters(), *proxy_projector.parameters()], lr = 0.0001, eps = 0.0001)
+
+segmentation_scheduler = optim.lr_scheduler.ReduceLROnPlateau(segmentation_optimizer, mode='max', factor=0.5, patience=c.patience, verbose=True)
+proxy_scheduler = optim.lr_scheduler.ReduceLROnPlateau(proxy_optimizer, mode='max', factor=0.5, patience=c.patience, verbose=True)
 
 segmentation_train_dice_loss_list = []
 segmentation_train_dice_score_list = []
@@ -82,38 +85,6 @@ for epoch in range(1, c.num_epochs+1):
         image = data['input'].to(c.device)
         gt = data['gt'].to(c.device)
 
-        # proxy model step
-        segmentation_model.eval()
-        proxy_encoder.train()
-        proxy_projector.train()
-
-        for p in segmentation_model.parameters():
-            p.requires_grad = False
-        for p in [*proxy_encoder.parameters(), *proxy_projector.parameters()]:
-            p.requires_grad = True
-
-        to_projector, _ = proxy_encoder(image)
-        projection_maps = proxy_projector(to_projector)
-        segmentation = segmentation_model(image, projection_maps)
-
-        proxy_optimizer.zero_grad()
-
-        proxy_loss = criterion(segmentation[:, 1], gt[:, 1])
-        proxy_train_dice_loss += proxy_loss.item()
-        proxy_loss.backward()
-
-        proxy_optimizer.step()
-
-        dice = Dice_Score(segmentation[:, 1].detach().cpu().numpy(), gt[:,1].detach().cpu().numpy())
-        proxy_train_dice_score += dice.item()
-
-        del to_projector
-        del _
-        del projection_maps
-        del segmentation
-        del proxy_loss
-        del dice
-
         # segmentation model step
         segmentation_model.train()
         proxy_encoder.eval()
@@ -139,13 +110,46 @@ for epoch in range(1, c.num_epochs+1):
         dice = Dice_Score(segmentation[:, 1].detach().cpu().numpy(), gt[:,1].detach().cpu().numpy())
         segmentation_train_dice_score += dice.item()
 
+        del to_projector
+        del _
+        del projection_maps
+        del segmentation
+        del segmentation_loss
+        del dice
+
+        # proxy model step
+        segmentation_model.eval()
+        proxy_encoder.train()
+        proxy_projector.train()
+
+        for p in segmentation_model.parameters():
+            p.requires_grad = False
+        for p in [*proxy_encoder.parameters(), *proxy_projector.parameters()]:
+            p.requires_grad = True
+
+        to_projector, _ = proxy_encoder(image)
+        projection_maps = proxy_projector(to_projector)
+        segmentation = segmentation_model(image, projection_maps)
+
+        proxy_optimizer.zero_grad()
+
+        proxy_loss = criterion(segmentation[:, 1], gt[:, 1])
+        proxy_train_dice_loss += proxy_loss.item()
+        proxy_loss.backward()
+
+        proxy_optimizer.step()
+
+        dice = Dice_Score(segmentation[:, 1].detach().cpu().numpy(), gt[:,1].detach().cpu().numpy())
+        proxy_train_dice_score += dice.item()
+
+
         del image
         del gt
         del to_projector
         del _
         del projection_maps
         del segmentation
-        del segmentation_loss
+        del proxy_loss
         del dice
     
     segmentation_train_dice_loss_list.append(segmentation_train_dice_loss / len(trainloader))
@@ -194,6 +198,9 @@ for epoch in range(1, c.num_epochs+1):
     validation_dice_score_list.append(validation_dice_score / len(validationloader))
     print(f'Validation dice loss at epoch#{epoch}: {validation_dice_loss_list[-1]}')
     print(f'Validation dice score at epoch#{epoch}: {validation_dice_score_list[-1]}')
+
+    segmentation_scheduler.step(validation_dice_score_list[-1])
+    proxy_scheduler.step(validation_dice_score_list[-1])
 
     np.save(f'./results/{c.proxy_type}_{c.date}_losses.npy', [segmentation_train_dice_loss_list, segmentation_train_dice_score_list, proxy_train_dice_loss_list, proxy_train_dice_score_list, validation_dice_loss_list, validation_dice_score_list])
     
