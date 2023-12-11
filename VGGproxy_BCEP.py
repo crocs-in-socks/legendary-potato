@@ -16,21 +16,21 @@ import numpy as np
 from tqdm import tqdm
 
 c = Constants(
-    batch_size = 8,
+    batch_size = 4,
     patience = 5,
-    num_workers = 12,
+    num_workers = 16,
     number_of_epochs = 100,
     date = '08_12_2023',
     to_save_folder = 'Dec08',
     to_load_folder = None,
     device = 'cuda:1',
     proxy_type = 'VGGproxy',
-    train_task = 'weightedBCE_wLRScheduler',
+    train_task = 'weightedBCE_wLRScheduler_simulated_lesions_on_brain',
     to_load_encoder_path = None,
     to_load_projector_path = None,
     to_load_classifier_path = None,
     to_load_proxy_path = None,
-    dataset = 'simulated_lesions_on_noise_background',
+    dataset = 'sim_1000+sim_2211',
 )
 
 trainset, validationset, testset = load_dataset(c.dataset, c.drive, ToTensor3D(labeled=True))
