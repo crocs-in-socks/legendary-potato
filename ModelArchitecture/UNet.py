@@ -407,12 +407,18 @@ class SpatialAttention_ProxyIntegration(nn.Module):
         super().__init__()
     
     def forward(self, x, proxy_map):
-        upsampled_x = F.interpolate(x, size=proxy_map.shape[-3:])
-        attention_x = upsampled_x * proxy_map
-        out_x = F.interpolate(attention_x, size=x.shape[-3:])
-
+        out_x = x * proxy_map
 
         return out_x + x
+    
+class ChannelAttention_ProxyIntegration(nn.Module):
+    def __init__(self):
+        super().__init__()
+    
+    def forward(self, x, proxy_map):
+        proxy_map = proxy_map.unsqueeze(2).unsqueeze(3).unsqueeze(4).expand_as(x)
+        return x * proxy_map
+
 
 class SpatialAttention(nn.Module):
     def __init__(self, ):
@@ -462,22 +468,26 @@ class SA_UNet(nn.Module):
         features = init_features
         self.encoder1 = SA_UNet._block(in_channels, features, name="enc1")
         # self.sa_unit1 = SpatialAttention()
-        self.sa_unit1 = SpatialAttention_ProxyIntegration()
+        # self.sa_unit1 = SpatialAttention_ProxyIntegration()
+        self.sa_unit1 = ChannelAttention_ProxyIntegration()
         self.pool1 = nn.MaxPool3d(kernel_size=2, stride=2)
 
         self.encoder2 = SA_UNet._block(features, features * 2, name="enc2")
         # self.sa_unit2 = SpatialAttention()
-        self.sa_unit2 = SpatialAttention_ProxyIntegration()
+        # self.sa_unit2 = SpatialAttention_ProxyIntegration()
+        self.sa_unit2 = ChannelAttention_ProxyIntegration()
         self.pool2 = nn.MaxPool3d(kernel_size=2, stride=2)
 
         self.encoder3 = SA_UNet._block(features * 2, features * 4, name="enc3")
         # self.sa_unit3 = SpatialAttention()
-        self.sa_unit3 = SpatialAttention_ProxyIntegration()
+        # self.sa_unit3 = SpatialAttention_ProxyIntegration()
+        self.sa_unit3 = ChannelAttention_ProxyIntegration()
         self.pool3 = nn.MaxPool3d(kernel_size=2, stride=2)
 
         self.encoder4 = SA_UNet._block(features * 4, features * 8, name="enc4")
         # self.sa_unit4 = SpatialAttention()
-        self.sa_unit4 = SpatialAttention_ProxyIntegration()
+        # self.sa_unit4 = SpatialAttention_ProxyIntegration()
+        self.sa_unit4 = ChannelAttention_ProxyIntegration()
         self.pool4 = nn.MaxPool3d(kernel_size=2, stride=2)
 
         self.bottleneck = SA_UNet._block(features * 8, features * 16, name="bottleneck")

@@ -21,11 +21,11 @@ c = Constants(
     patience = None,
     num_workers = 16,
     num_epochs = None,
-    date = '11_12_2023',
+    date = None,
     to_save_folder = None,
-    to_load_folder = 'Dec11',
+    to_load_folder = 'Dec12',
     device = 'cuda:1',
-    proxy_type = 'Integrated_Unet_&_VGGproxy_tandem',
+    proxy_type = None,
     train_task = None,
     encoder_load_path = None,
     projector_load_path = None,
@@ -38,13 +38,13 @@ trainset, validationset, testset = load_dataset(c.dataset, c.drive, ToTensor3D(l
 testloader = DataLoader(testset, batch_size=c.batch_size, shuffle=True, num_workers=c.num_workers)
 
 proxy_encoder = VGG3D_Encoder(input_channels=1).to(c.device)
-proxy_encoder.load_state_dict(torch.load(f'/mnt/{c.drive}/LabData/models_retrained/experiments/Dec11/Integrated_Unet_&_VGGproxy_tandem_seg_&_proxy(classifier)_simulated_brain_bg_>_ratiod_wrt_wmh_simulated_brain_bg_encoder_11_12_2023_state_dict_best_score72.pth'))
+proxy_encoder.load_state_dict(torch.load(f'/mnt/{c.drive}/LabData/models_retrained/experiments/Dec12/Integrated_Unet_&_VGGproxy_tandem_(segmentation_>_proxy)_pat10_channel_attention_1e-3_>_1e-5_lr_seg_&_proxy(classifier)_simulated_brain_bg_>_real_wmh_ratiod_wrt_wmh_simulated_brain_bg_encoder_12_12_2023_state_dict_best_score94.pth'))
 
-proxy_projector = IntegratedProjector(num_layers=4, layer_sizes=[64, 128, 256, 512]).to(c.device)
-proxy_projector.load_state_dict(torch.load(f'/mnt/{c.drive}/LabData/models_retrained/experiments/Dec11/Integrated_Unet_&_VGGproxy_tandem_seg_&_proxy(classifier)_simulated_brain_bg_>_ratiod_wrt_wmh_simulated_brain_bg_projector_11_12_2023_state_dict_best_score72.pth'))
+proxy_projector = IntegratedChannelProjector(num_layers=4, layer_sizes=[64, 128, 256, 512], layer_dimensions=[64, 32, 32, 16]).to(c.device)
+proxy_projector.load_state_dict(torch.load(f'/mnt/{c.drive}/LabData/models_retrained/experiments/Dec12/Integrated_Unet_&_VGGproxy_tandem_(segmentation_>_proxy)_pat10_channel_attention_1e-3_>_1e-5_lr_seg_&_proxy(classifier)_simulated_brain_bg_>_real_wmh_ratiod_wrt_wmh_simulated_brain_bg_projector_12_12_2023_state_dict_best_score94.pth'))
 
 segmentation_model = SA_UNet(out_channels=2).to(c.device)
-segmentation_model.load_state_dict(torch.load(f'/mnt/{c.drive}/LabData/models_retrained/experiments/Dec11/Integrated_Unet_&_VGGproxy_tandem_seg_&_proxy(classifier)_simulated_brain_bg_>_ratiod_wrt_wmh_simulated_brain_bg_segmentor_11_12_2023_state_dict_best_score72.pth'))
+segmentation_model.load_state_dict(torch.load(f'/mnt/{c.drive}/LabData/models_retrained/experiments/Dec12/Integrated_Unet_&_VGGproxy_tandem_(segmentation_>_proxy)_pat10_channel_attention_1e-3_>_1e-5_lr_seg_&_proxy(classifier)_simulated_brain_bg_>_real_wmh_ratiod_wrt_wmh_simulated_brain_bg_segmentor_12_12_2023_state_dict_best_score94.pth'))
 
 print()
 print('Tandem testing segmentation and proxy models.')

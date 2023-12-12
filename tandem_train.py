@@ -21,11 +21,11 @@ c = Constants(
     patience = 10,
     num_workers = 16,
     num_epochs = 100,
-    date = '11_12_2023',
-    to_save_folder = 'Dec11_reverse',
+    date = '12_12_2023',
+    to_save_folder = 'Dec12',
     to_load_folder = None,
     device = 'cuda:1',
-    proxy_type = 'Integrated_Unet_&_VGGproxy_tandem_(segmentation_>_proxy)_pat10',
+    proxy_type = 'Integrated_Unet_&_VGGproxy_tandem_(segmentation_>_proxy)_pat10_channel_attention_1e-3_>_1e-5_lr',
     train_task = 'seg_&_proxy(classifier)_simulated_brain_bg_>_real_wmh_ratiod_wrt_wmh_simulated_brain_bg',
     encoder_load_path = None,
     projector_load_path = None,
@@ -41,18 +41,18 @@ validationloader = DataLoader(validationset, batch_size=c.batch_size, shuffle=Tr
 proxy_encoder = VGG3D_Encoder(input_channels=1).to(c.device)
 proxy_encoder.load_state_dict(torch.load(f'/mnt/{c.drive}/LabData/models_retrained/experiments/Dec08/VGGproxy_weightedBCE_wLRScheduler_simulated_lesions_on_brain_encoder_08_12_2023_state_dict_best_loss80.pth'))
 
-proxy_projector = IntegratedProjector(num_layers=4, layer_sizes=[64, 128, 256, 512]).to(c.device)
+proxy_projector = IntegratedChannelProjector(num_layers=4, layer_sizes=[64, 128, 256, 512], layer_dimensions=[64, 32, 32, 16]).to(c.device)
 
 segmentation_model = SA_UNet(out_channels=2).to(c.device)
 segmentation_model.load_state_dict(torch.load(f'/mnt/{c.drive}/LabData/models_retrained/segmentation_models/unet_focal + dice_state_dict_best_loss85.pth')['model_state_dict'], strict=False)
 
 criterion = DiceLoss().to(c.device)
 
-segmentation_optimizer = optim.Adam(segmentation_model.parameters(), lr = 0.0001, eps = 0.0001)
-proxy_optimizer = optim.Adam([*proxy_encoder.parameters(), *proxy_projector.parameters()], lr = 0.0001, eps = 0.0001)
+segmentation_optimizer = optim.Adam(segmentation_model.parameters(), lr = 0.001, eps = 0.0001)
+proxy_optimizer = optim.Adam([*proxy_encoder.parameters(), *proxy_projector.parameters()], lr = 0.001, eps = 0.0001)
 
-segmentation_scheduler = optim.lr_scheduler.ReduceLROnPlateau(segmentation_optimizer, mode='max', factor=0.5, patience=c.patience, verbose=True)
-proxy_scheduler = optim.lr_scheduler.ReduceLROnPlateau(proxy_optimizer, mode='max', factor=0.5, patience=c.patience, verbose=True)
+segmentation_scheduler = optim.lr_scheduler.ReduceLROnPlateau(segmentation_optimizer, mode='max', factor=0.5, patience=c.patience, min_lr=0.00001,verbose=True)
+proxy_scheduler = optim.lr_scheduler.ReduceLROnPlateau(proxy_optimizer, mode='max', factor=0.5, patience=c.patience, min_lr=0.00001, verbose=True)
 
 segmentation_train_dice_loss_list = []
 segmentation_train_dice_score_list = []

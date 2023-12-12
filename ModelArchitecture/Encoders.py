@@ -352,8 +352,38 @@ class Projector(nn.Module):
         if self.test:
             return out, upsampled_out
         return out
+    
+class IntegratedChannelProjector(nn.Module):
+    def __init__(self, num_layers, layer_sizes, layer_dimensions, reduction_ratio=16):
+        super().__init__()
+        self.num_layers = num_layers
 
-class IntegratedProjector(nn.Module):
+        self.average_pool_heads = nn.ModuleList([
+            nn.Sequential(
+                nn.AvgPool3d(kernel_size=(layer_dimensions[idx], layer_dimensions[idx], layer_dimensions[idx]), stride=(layer_dimensions[idx], layer_dimensions[idx], layer_dimensions[idx])),
+                nn.Flatten(),
+                nn.Linear(layer_sizes[idx], layer_sizes[idx] // reduction_ratio),
+                nn.ReLU(inplace=True),
+                nn.Linear(layer_sizes[idx] // reduction_ratio, layer_sizes[idx])
+            )
+            for idx in range(num_layers)
+        ])
+
+        self.max_pool_heads = nn.ModuleList([
+            nn.Sequential(
+                nn.MaxPool3d(kernel_size=(layer_dimensions[idx], layer_dimensions[idx], layer_dimensions[idx]), stride=(layer_dimensions[idx], layer_dimensions[idx], layer_dimensions[idx])),
+                nn.Flatten(),
+                nn.Linear(layer_sizes[idx], layer_sizes[idx] // reduction_ratio),
+                nn.ReLU(inplace=True),
+                nn.Linear(layer_sizes[idx] // reduction_ratio, layer_sizes[idx])
+            )
+            for idx in range(num_layers)
+        ])
+    
+    def forward(self, x):
+        return [F.sigmoid(self.average_pool_heads[idx](x[idx]) + self.max_pool_heads[idx](x[idx])) for idx in range(self.num_layers)]
+
+class IntegratedSpatialProjector(nn.Module):
     def __init__(self, num_layers, layer_sizes, projected_channels=None):
         super().__init__()
         self.num_layers = num_layers

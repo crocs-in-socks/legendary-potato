@@ -35,6 +35,27 @@ class SSIMLoss(nn.Module):
 
         return 1-ms_ssim(x,y,data_range=1,win_size=5)
 
+class Frequency_loss(nn.Module):
+    def __init__(self,weight):
+        super().__init__()
+        self.weights = weight
+    def forward(self,x,y):
+        return torch.sum(self.weights*torch.abs(x-y))
+
+
+class MS_SSIMLoss(nn.Module):
+    def __init__(self,data_range = 1.0,win_size=5,win_sigma=1.5,channel=1,spatial_dims=3):
+        super(MS_SSIMLoss,self).__init__()
+        self.eps = 1e-7
+        self.data_range = data_range
+        self.win_size = win_size
+        self.win_sigma = win_sigma
+        self.channel = channel
+        self.spatial_dims = spatial_dims
+        self.ms_ssim = MS_SSIM(data_range = self.data_range,win_size = self.win_size,win_sigma = self.win_sigma,channel = self.channel,spatial_dims =self.spatial_dims)
+    def forward(self,x,y):
+        return 1-self.ms_ssim(x,y)
+
 class BCE_Loss(nn.Module):
     def __init__(self):
         super(BCE_Loss, self).__init__()
@@ -72,6 +93,21 @@ class DiceLoss(nn.Module):
 
         dice_loss = ((2. * intersection + self.eps) / (cardinality + self.eps))
         return (1 - dice_loss.mean())
+    
+class LogCoshDiceLoss(nn.Module):
+    def __init__(self,weight=None):
+        super().__init__()
+
+    def forward(self, x, target, wt = 1):
+        smooth = 1
+        dims = (0,) + tuple(range(2, target.ndimension()))
+        intersection = torch.sum(x * target, dims)
+        cardinality = torch.sum(x + target, dims)
+
+        dice_score = ((2. * intersection + smooth) / (cardinality + smooth))
+        dice_loss = (1 - dice_score)
+        
+        return torch.log((torch.exp(dice_loss) + torch.exp(-dice_loss)) / 2.0).mean()
 
 class VoxelwiseSupConMSELoss(nn.Module):
 
@@ -305,3 +341,166 @@ def determine_dice_metric(pred, target):
         dice = (2. * intersection + smooth) / (torch.sum(pred_vect) + torch.sum(target_vect) + smooth)
         avg_dice += dice
     return avg_dice / n_classes
+
+from ModelArchitecture.Losses_unified_focal import AsymmetricFocalTverskyLoss
+
+class DICELoss(nn.Module):
+    def __init__(self):
+        super().__init__()
+        pass
+    def forward(self,pred,target,wt=1):
+        #print(wt.shape)
+        dice = AsymmetricFocalTverskyLoss(delta=0.5,gamma=0)(pred,target)
+        return dice
+
+class FocalDICELoss(nn.Module):
+    def __init__(self):
+        super().__init__()
+        pass
+    def forward(self,pred,target,wt=1):
+        #print(wt.shape)
+        dice = AsymmetricFocalTverskyLoss(delta=0.5,gamma=0.5)(pred,target)
+        return dice
+    
+class WBCE_DICELoss(nn.Module):
+    def __init__(self,):
+        super().__init__()
+        pass
+    def forward(self,pred,target,wt=1):
+        #print(wt.shape)
+        dice = DiceLoss()(pred[:,1],target[:,1])
+        wbce = BCE_Loss_Weighted(weight=5)(pred,target,wt)
+        return dice + wbce
+
+class WBCE_FOCALDICELoss(nn.Module):
+    def __init__(self,):
+        super().__init__()
+
+        pass
+    def forward(self,pred,target,wt=1):
+        dice = AsymmetricFocalTverskyLoss(delta=0.5)(pred,target) # this becomes dice
+        wbce = BCE_Loss_Weighted(weight=5)(pred,target,wt)
+        return dice + wbce
+
+class WBCE_DICELoss(nn.Module):
+    def __init__(self,):
+        super().__init__()
+        pass
+    def forward(self,pred,target,wt=1):
+        #print(wt.shape)
+        dice = DiceLoss()(pred[:,1],target[:,1])
+        wbce = BCE_Loss_Weighted(weight=5)(pred,target,wt)
+        return dice + wbce
+
+class WBCE_FOCALDICELoss(nn.Module):
+    def __init__(self,):
+        super().__init__()
+
+        pass
+    def forward(self,pred,target,wt=1):
+        dice = AsymmetricFocalTverskyLoss(delta=0.5)(pred,target) # this becomes dice
+        wbce = BCE_Loss_Weighted(weight=5)(pred,target,wt)
+        return dice + wbce
+    
+#################################################################################################
+# Losses Taken from https://www.kaggle.com/code/bigironsphere/loss-function-library-keras-pytorch
+#################################################################################################
+ALPHA = 0.8
+GAMMA = 2
+
+class FocalLoss(nn.Module):
+    def __init__(self, weight=None, size_average=True):
+        super(FocalLoss, self).__init__()
+
+    def forward(self, inputs, targets, alpha=ALPHA, gamma=GAMMA, smooth=1,wt=1):
+        
+        #comment out if your model contains a sigmoid or equivalent activation layer
+        inputs = F.sigmoid(inputs)       
+        
+        #flatten label and prediction tensors
+        inputs = inputs.view(-1)
+        targets = targets.view(-1)
+        
+        #first compute binary cross-entropy 
+        BCE = F.binary_cross_entropy(inputs, targets, reduction='mean')
+        BCE_EXP = torch.exp(-BCE)
+        focal_loss = alpha * (1-BCE_EXP)**gamma * BCE
+                       
+        return focal_loss
+    
+#PyTorch
+ALPHA = 0.5
+BETA = 0.5
+
+class TverskyLoss(nn.Module):
+    def __init__(self, weight=None, size_average=True):
+        super(TverskyLoss, self).__init__()
+
+    def forward(self, inputs, targets, smooth=1, alpha=ALPHA, beta=BETA):
+        
+        #comment out if your model contains a sigmoid or equivalent activation layer
+        inputs = F.sigmoid(inputs)       
+        
+        #flatten label and prediction tensors
+        inputs = inputs.view(-1)
+        targets = targets.view(-1)
+        
+        #True Positives, False Positives & False Negatives
+        TP = (inputs * targets).sum()    
+        FP = ((1-targets) * inputs).sum()
+        FN = (targets * (1-inputs)).sum()
+       
+        Tversky = (TP + smooth) / (TP + alpha*FP + beta*FN + smooth)  
+        
+        return 1 - Tversky
+    
+ALPHA = 0.5
+BETA = 0.5
+GAMMA = 1
+
+class FocalTverskyLoss(nn.Module):
+    def __init__(self, weight=None, size_average=True):
+        super(FocalTverskyLoss, self).__init__()
+
+    def forward(self, inputs, targets, smooth=1, alpha=ALPHA, beta=BETA, gamma=GAMMA):
+        
+        #comment out if your model contains a sigmoid or equivalent activation layer
+        inputs = F.sigmoid(inputs)       
+        
+        #flatten label and prediction tensors
+        inputs = inputs.view(-1)
+        targets = targets.view(-1)
+        
+        #True Positives, False Positives & False Negatives
+        TP = (inputs * targets).sum()    
+        FP = ((1-targets) * inputs).sum()
+        FN = (targets * (1-inputs)).sum()
+        
+        Tversky = (TP + smooth) / (TP + alpha*FP + beta*FN + smooth)  
+        FocalTversky = (1 - Tversky)**gamma
+                       
+        return FocalTversky
+
+ALPHA = 0.5 # < 0.5 penalises FP more, > 0.5 penalises FN more
+CE_RATIO = 0.5 #weighted contribution of modified CE loss compared to Dice loss
+
+class ComboLoss(nn.Module):
+    def __init__(self, weight=None, size_average=True):
+        super(ComboLoss, self).__init__()
+
+    def forward(self, inputs, targets, smooth=1, alpha=ALPHA, beta=BETA, eps=1e-9):
+        
+        #flatten label and prediction tensors
+        inputs = inputs.view(-1)
+        targets = targets.view(-1)
+        
+        #True Positives, False Positives & False Negatives
+        intersection = (inputs * targets).sum()    
+        dice = (2. * intersection + smooth) / (inputs.sum() + targets.sum() + smooth)
+        
+        inputs = torch.clamp(inputs, eps, 1.0 - eps)       
+        out = - (ALPHA * ((targets * torch.log(inputs)) + ((1 - ALPHA) * (1.0 - targets) * torch.log(1.0 - inputs))))
+        weighted_ce = out.mean(-1)
+        combo = (CE_RATIO * weighted_ce) - ((1 - CE_RATIO) * dice)
+        
+        return combo
