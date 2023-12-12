@@ -27,8 +27,8 @@ c = Constants(
     device = 'cuda:1',
     proxy_type = None,
     train_task = None,
-    encoder_load_path = 'Integrated_Unet_&_VGGproxy_tandem_seg_&_proxy(classifier)_simulated_brain_bg_>_ratiod_wrt_wmh_simulated_brain_bg_encoder_11_12_2023_state_dict_best_score44.pth',
-    projector_load_path = 'Integrated_Unet_&_VGGproxy_tandem_seg_&_proxy(classifier)_simulated_brain_bg_>_ratiod_wrt_wmh_simulated_brain_bg_projector_11_12_2023_state_dict_best_score44.pth',
+    encoder_load_path = 'Integrated_Unet_&_VGGproxy_tandem_seg_&_proxy(classifier)_simulated_brain_bg_>_realwmh_ratiod_wrt_wmh_simulated_brain_bg_encoder_11_12_2023_state_dict_best_score47.pth',
+    projector_load_path = 'Integrated_Unet_&_VGGproxy_tandem_seg_&_proxy(classifier)_simulated_brain_bg_>_realwmh_ratiod_wrt_wmh_simulated_brain_bg_projector_11_12_2023_state_dict_best_score47.pth',
     classifier_load_path = None,
     proxy_load_path = None,
     dataset = 'wmh'
@@ -49,7 +49,7 @@ encoder.load_state_dict(torch.load(c.encoder_load_path))
 # projection_head = Projector(num_layers=5, layer_sizes=[17, 34, 68, 136, 272]).to(device)
 # projection_head = Projector(num_layers=4, layer_sizes=[64, 128, 256, 512]).to(device)
 # projection_head = Projector(num_layers=5, layer_sizes=[32, 64, 128, 256, 512]).to(device)
-projection_head = IntegratedProjector(num_layers=4, layer_sizes=[64, 128, 256, 512]).to(c.device)
+projection_head = IntegratedChannelProjector(num_layers=4, layer_sizes=[64, 128, 256, 512]).to(c.device)
 # projection_head = Projector(num_layers=4, layer_sizes=[64, 128, 256, 512], test=True).to(c.device)
 projection_head.load_state_dict(torch.load(c.projector_load_path))
 

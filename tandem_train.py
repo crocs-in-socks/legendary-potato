@@ -23,6 +23,8 @@ c = Constants(
     num_epochs = 100,
     date = '12_12_2023',
     to_save_folder = 'Dec12',
+    date = '12_12_2023',
+    to_save_folder = 'Dec12',
     to_load_folder = None,
     device = 'cuda:1',
     proxy_type = 'Integrated_Unet_&_VGGproxy_tandem_(segmentation_>_proxy)_pat10_channel_attention_1e-3_>_1e-5_lr',
@@ -48,6 +50,8 @@ segmentation_model.load_state_dict(torch.load(f'/mnt/{c.drive}/LabData/models_re
 
 criterion = DiceLoss().to(c.device)
 
+segmentation_optimizer = optim.Adam(segmentation_model.parameters(), lr = 0.001, eps = 0.0001)
+proxy_optimizer = optim.Adam([*proxy_encoder.parameters(), *proxy_projector.parameters()], lr = 0.001, eps = 0.0001)
 segmentation_optimizer = optim.Adam(segmentation_model.parameters(), lr = 0.001, eps = 0.0001)
 proxy_optimizer = optim.Adam([*proxy_encoder.parameters(), *proxy_projector.parameters()], lr = 0.001, eps = 0.0001)
 
