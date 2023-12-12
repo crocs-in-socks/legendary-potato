@@ -21,11 +21,11 @@ c = Constants(
     patience = 10,
     num_workers = 16,
     num_epochs = 100,
-    date = '11_12_2023',
-    to_save_folder = 'Dec11_reverse',
+    date = '12_12_2023',
+    to_save_folder = 'Dec12',
     to_load_folder = None,
-    device = 'cuda:1',
-    proxy_type = 'Integrated_Unet_&_VGGproxy_tandem_(segmentation_>_proxy)_pat10',
+    device = 'cuda:0',
+    proxy_type = 'Integrated_Unet_&_VGGproxy_tandem_(segmentation_>_proxy)_pat10_1e-3_>_1e-5_lr_multichannel_projection',
     train_task = 'seg_&_proxy(classifier)_simulated_brain_bg_>_real_wmh_ratiod_wrt_wmh_simulated_brain_bg',
     encoder_load_path = None,
     projector_load_path = None,
@@ -48,11 +48,11 @@ segmentation_model.load_state_dict(torch.load(f'/mnt/{c.drive}/LabData/models_re
 
 criterion = DiceLoss().to(c.device)
 
-segmentation_optimizer = optim.Adam(segmentation_model.parameters(), lr = 0.0001, eps = 0.0001)
-proxy_optimizer = optim.Adam([*proxy_encoder.parameters(), *proxy_projector.parameters()], lr = 0.0001, eps = 0.0001)
+segmentation_optimizer = optim.Adam(segmentation_model.parameters(), lr = 0.001, eps = 0.0001)
+proxy_optimizer = optim.Adam([*proxy_encoder.parameters(), *proxy_projector.parameters()], lr = 0.001, eps = 0.0001)
 
-segmentation_scheduler = optim.lr_scheduler.ReduceLROnPlateau(segmentation_optimizer, mode='max', factor=0.5, patience=c.patience, verbose=True)
-proxy_scheduler = optim.lr_scheduler.ReduceLROnPlateau(proxy_optimizer, mode='max', factor=0.5, patience=c.patience, verbose=True)
+segmentation_scheduler = optim.lr_scheduler.ReduceLROnPlateau(segmentation_optimizer, mode='max', factor=0.5, patience=c.patience, min_lr=0.00001, verbose=True)
+proxy_scheduler = optim.lr_scheduler.ReduceLROnPlateau(proxy_optimizer, mode='max', factor=0.5, patience=c.patience, min_lr=0.00001, verbose=True)
 
 segmentation_train_dice_loss_list = []
 segmentation_train_dice_score_list = []
