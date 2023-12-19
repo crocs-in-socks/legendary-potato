@@ -19,7 +19,7 @@ from tqdm import tqdm
 
 batch_size = 1
 patience = 15
-num_workers = 16
+num_workers = 8
 device = 'cuda:1'
 number_of_epochs = 100
 date = '07_12_2023'

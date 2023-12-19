@@ -389,14 +389,22 @@ class IntegratedSpatialProjector(nn.Module):
         self.num_layers = num_layers
 
         if projected_channels is None:
-            projected_channels = [1]*self.num_layers
-            # projected_channels = layer_sizes
+            # projected_channels = [1]*self.num_layers
+            projected_channels = layer_sizes
+
+        # self.projection_heads = nn.ModuleList([
+        #         nn.Sequential(
+        #             nn.Conv3d(layer_sizes[idx], 1, kernel_size=1),
+        #             nn.ReLU(inplace=True),
+        #             nn.Conv3d(1, projected_channels[idx], kernel_size=1)
+        #         ) for idx in range(num_layers)
+        #     ])
 
         self.projection_heads = nn.ModuleList([
                 nn.Sequential(
-                    nn.Conv3d(layer_sizes[idx], 1, kernel_size=1),
+                    nn.Conv3d(layer_sizes[idx], layer_sizes[idx] // 4, kernel_size=1),
                     nn.ReLU(inplace=True),
-                    nn.Conv3d(1, projected_channels[idx], kernel_size=1)
+                    nn.Conv3d(layer_sizes[idx] // 4, projected_channels[idx], kernel_size=1)
                 ) for idx in range(num_layers)
             ])
     

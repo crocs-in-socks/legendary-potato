@@ -15,7 +15,7 @@ from tqdm import tqdm
 c = Constants(
     batch_size = 8,
     patience = None,
-    num_workers = 16,
+    num_workers = 8,
     num_epochs = None,
     date = '08_12_2023',
     to_save_folder = None,

@@ -19,19 +19,19 @@ import matplotlib.pyplot as plt
 c = Constants(
     batch_size = 1,
     patience = None,
-    num_workers = 16,
+    num_workers = 8,
     num_epochs = None,
     date = None,
     to_save_folder = None,
-    to_load_folder = 'Dec11',
+    to_load_folder = 'Dec13',
     device = 'cuda:1',
     proxy_type = None,
     train_task = None,
-    encoder_load_path = 'Integrated_Unet_&_VGGproxy_tandem_seg_&_proxy(classifier)_simulated_brain_bg_>_realwmh_ratiod_wrt_wmh_simulated_brain_bg_encoder_11_12_2023_state_dict_best_score47.pth',
-    projector_load_path = 'Integrated_Unet_&_VGGproxy_tandem_seg_&_proxy(classifier)_simulated_brain_bg_>_realwmh_ratiod_wrt_wmh_simulated_brain_bg_projector_11_12_2023_state_dict_best_score47.pth',
+    encoder_load_path = 'Integrated_Unet_&_VGGproxy_pat5_dice_stepped16_projection_1e-3_>_1e-5_lr_seg(decoder_step_per_epoch)_&_proxy(classifier)_simulated_brain_bg_>_real_wmh_ratiod_wrt_wmh_simulated_brain_bg_encoder_13_12_2023_state_dict_best_score91.pth',
+    projector_load_path = 'Integrated_Unet_&_VGGproxy_pat5_dice_stepped16_projection_1e-3_>_1e-5_lr_seg(decoder_step_per_epoch)_&_proxy(classifier)_simulated_brain_bg_>_real_wmh_ratiod_wrt_wmh_simulated_brain_bg_projector_13_12_2023_state_dict_best_score91.pth',
     classifier_load_path = None,
     proxy_load_path = None,
-    dataset = 'wmh'
+    dataset = 'brats'
 )
 
 trainset, validationset, testset = load_dataset(c.dataset, c.drive, ToTensor3D(labeled=True))
@@ -49,7 +49,7 @@ encoder.load_state_dict(torch.load(c.encoder_load_path))
 # projection_head = Projector(num_layers=5, layer_sizes=[17, 34, 68, 136, 272]).to(device)
 # projection_head = Projector(num_layers=4, layer_sizes=[64, 128, 256, 512]).to(device)
 # projection_head = Projector(num_layers=5, layer_sizes=[32, 64, 128, 256, 512]).to(device)
-projection_head = IntegratedChannelProjector(num_layers=4, layer_sizes=[64, 128, 256, 512]).to(c.device)
+projection_head = IntegratedSpatialProjector(num_layers=4, layer_sizes=[64, 128, 256, 512]).to(c.device)
 # projection_head = Projector(num_layers=4, layer_sizes=[64, 128, 256, 512], test=True).to(c.device)
 projection_head.load_state_dict(torch.load(c.projector_load_path))
 
@@ -64,7 +64,7 @@ for idx, data in enumerate(tqdm(testloader), 0):
     projection_maps = projection_head(to_projector)
 
     for map_idx, map in enumerate(projection_maps):
-        projection_maps[map_idx] = F.interpolate(projection_maps[map_idx], size=(128, 128, 128))
+        projection_maps[map_idx] = F.interpolate(map, size=(128, 128, 128))
 
     plt.figure(figsize=(40, 15))
     plt.subplot(1, 6, 1)

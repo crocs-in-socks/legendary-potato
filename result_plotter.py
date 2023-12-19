@@ -9,7 +9,7 @@ import matplotlib.pyplot as plt
 # train_accuracy = np.concatenate([data_first[2, :28], data_second[2]])
 # validation_accuracy = np.concatenate([data_first[3, :28], data_second[3]])
 
-file_name = 'VGGproxy_weightedBCE_wLRScheduler_simulated_lesions_on_brain_classifier_08_12_2023_accuracies'
+file_name = 'Integrated_Unet_&_VGGproxy_tandem_(segmentation_>_proxy)_pat10_feature_add_1e-3_>_1e-5_lr_14_12_2023_losses'
 data = np.load(f'./results/{file_name}.npy')
 print(data.shape)
 train_loss = data[0]

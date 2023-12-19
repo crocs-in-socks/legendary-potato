@@ -1,9 +1,7 @@
 import torch
-import torch.nn as nn
 import torch.optim as optim
-from torchvision import transforms
-import torch.nn.functional as F
-from torch.utils.data import DataLoader, ConcatDataset, random_split
+
+from torch.utils.data import DataLoader
 
 from Utilities.Generic import *
 
@@ -11,25 +9,23 @@ from ModelArchitecture.DUCK_Net import *
 from ModelArchitecture.Encoders import *
 from ModelArchitecture.UNet import *
 
-from ImageLoader.ImageLoader3D import ImageLoader3D
 from ModelArchitecture.Transformations import *
 from ModelArchitecture.Losses import *
 
-import glob
 import numpy as np
 from tqdm import tqdm
 
 c = Constants(
     batch_size = 2,
     patience = 5,
-    num_workers = 16,
+    num_workers = 8,
     number_of_epochs = 100,
-    date = '12_12_2023',
-    to_save_folder = 'Dec12',
+    date = '13_12_2023',
+    to_save_folder = 'Dec13',
     to_load_folder = None,
     device = 'cuda:1',
-    proxy_type = 'UNETproxy_',
-    train_task = 'reconstruction_simulated_noise_bg_>_sim_wmh_&_sim_brats_occluded',
+    proxy_type = 'UNETproxy',
+    train_task = 'reconstruction_simulated_noise_bg_>_sim_wmh_&_sim_brats_healthy_occluded',
     to_load_encoder_path = None,
     to_load_projector_path = None,
     to_load_classifier_path = None,
@@ -43,7 +39,6 @@ trainloader = DataLoader(trainset, batch_size=c.batch_size, shuffle=False, num_w
 validationloader = DataLoader(validationset, batch_size=c.batch_size, shuffle=True, num_workers=c.num_workers)
 
 model = UNet(out_channels=1).to(c.device)
-# model.load_state_dict(torch.load(f'/mnt/{c.drive}/LabData/models_retrained/segmentation_models/unet_focal + dice_state_dict_best_loss85.pth')['model_state_dict'])
 
 optimizer = optim.Adam(model.parameters(), lr = 0.001, eps = 0.0001)
 scheduler = optim.lr_scheduler.ReduceLROnPlateau(optimizer, mode='min', factor=0.5, patience=c.patience, min_lr=0.00001, verbose=True)
@@ -126,20 +121,21 @@ for epoch in range(1, c.num_epochs+1):
     validation_loss_list.append(validation_loss / len(validationloader))
     print(f'Reconstruction validation loss at epoch #{epoch}: {validation_loss_list[-1]}')
 
-    np.save(f'./results/{c.proxy_type}_{c.date}_losses.npy', [train_loss_list, validation_loss_list])
+    np.save(f'./results/{c.proxy_type}_{c.train_task}_{c.date}_losses.npy', [train_loss_list, validation_loss_list])
 
     if best_validation_loss is None:
         best_validation_loss = validation_loss_list[-1]
+        
     elif validation_loss_list[-1] < best_validation_loss:
         best_validation_loss = validation_loss_list[-1]
-        torch.save(model.state_dict(), f'{c.to_save_folder}{c.proxy_type}_{c.date}_state_dict_best_loss{epoch}.pth')
+        torch.save(model.state_dict(), f'{c.to_save_folder}{c.proxy_type}_{c.train_task}_{c.date}_state_dict_best_loss{epoch}.pth')
 
     if epoch % 10 == 0:
-        torch.save(model.state_dict(), f'{c.to_save_folder}{c.proxy_type}_{c.date}_state_dict{epoch}.pth')
+        torch.save(model.state_dict(), f'{c.to_save_folder}{c.proxy_type}_{c.train_task}_{c.date}_state_dict{epoch}.pth')
 
     print()
 
-torch.save(model.state_dict(), f'{c.to_save_folder}{c.proxy_type}_{c.date}_state_dict{c.num_epochs+1}.pth')
+torch.save(model.state_dict(), f'{c.to_save_folder}{c.proxy_type}_{c.train_task}_{c.date}_state_dict{c.num_epochs+1}.pth')
 
 print()
 print('Script executed.')

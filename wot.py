@@ -16,7 +16,7 @@ import matplotlib.pyplot as plt
 
 batch_size = 1
 patience = 15
-num_workers = 16
+num_workers = 8
 device = 'cuda:1'
 
 Sim1000_train_data_paths = sorted(glob.glob('/mnt/fd67a3c7-ac13-4329-bdbb-bdad39a33bf1/Gouri/simulation_data/Sim1000/Dark/all/TrainSet/*FLAIR.nii.gz'))
