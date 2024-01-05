@@ -44,25 +44,29 @@ testset = ImageLoader3D(paths=testset_paths, gt_paths=None, image_size=128, type
 
 clean_set = ImageLoader3D(paths=clean_data, gt_paths=clean_labels, type_of_imgs='nifty', transform=composed_transform, clean=True)
 
-allset = ConcatDataset([trainset, validationset, testset, clean_set])
+allset = ConcatDataset([trainset, validationset, testset])
 
 ResNet_encoder= ResNet3D_Encoder(image_channels=1).to(device)
 # projection_head = nn.Conv3d(960, 1, kernel_size=1).to(device)
 # projection_head = nn.Conv3d(512, 1, kernel_size=1).to(device)
+projection_head = Projector(num_layers=4, layer_sizes=[64, 128, 256, 512]).to(device)
 
-ResNet_allloader = DataLoader(allset, batch_size=batch_size, shuffle=True, num_workers=0)
+ResNet_allloader = DataLoader(allset, batch_size=batch_size, shuffle=False, num_workers=0)
 
-ResNet_encoder.load_state_dict(torch.load(f'{model_path}Multiclasspretrained_ResNet_Encoder_22_11_2023_state_dict75.pth'))
-# projection_head.load_state_dict(torch.load(f'{model_path}Contrastive_ProjectionHead_StackedOnlyAnomalous_wNIMH_09_11_2023_ProjectorHead_state_dict101.pth'))
+ResNet_encoder.load_state_dict(torch.load(f'{model_path}VoxContrastivefinetuned_MulticlasspretrainResNet18Encoder_22_11_2023_state_dict101.pth'))
+projection_head.load_state_dict(torch.load(f'{model_path}VoxContrastivefinetuned_MulticlasspretrainResNet18ProjectionHead_22_11_2023_state_dict101.pth'))
 
 for i in tqdm(range(len(allset))):
 
     torch.cuda.empty_cache()
     sample_dict = allset[i]
     sample_input = sample_dict['input'].to(device).unsqueeze(0)
-    sample_clean = sample_dict['clean'].to(device).unsqueeze(0)
     sample_label = (sample_dict['gt'])[1].to(device).unsqueeze(0).unsqueeze(0)
 
+    layer_list, final_out = ResNet_encoder(sample_input)
+    final_out = projection_head(layer_list)
+
+    sample_clean = sample_dict['clean'].to(device).unsqueeze(0)
     sample_mixed = torch.cat([sample_input, sample_clean])
 
     # z_mixed = ResNet_Model(sample_mixed)
@@ -160,16 +164,20 @@ for i in tqdm(range(len(allset))):
 
     # conv_output = F.normalize(conv_output)
     input_diff = sample_mixed * sample_label
+    conv_output = F.interpolate(final_out, size=(128, 128, 128))
     
     plt.figure(figsize=(15, 5))
     plt.subplot(1, 3, 1)
-    plt.imshow(conv_output[0, 0, :, :, 64].detach().cpu(), cmap='gray', vmin=0, vmax=1)
-    plt.title(f'projection_output anomalous sample #{i+1}')
+    plt.imshow(conv_output[0, 0, :, :, 64].detach().cpu())
+    plt.colorbar()
+    plt.title(f'projection_output sample #{i+1}')
     plt.subplot(1, 3, 2)
-    plt.imshow(input_diff[0, 0, :, :, 64].detach().cpu(), cmap='gray', vmin=0, vmax=1)
-    plt.title(f'input_diff anomalous sample #{i+1}')
+    plt.imshow(sample_label[0, 0, :, :, 64].detach().cpu())
+    plt.colorbar()
+    plt.title(f'gt #{i+1}')
     plt.subplot(1, 3, 3)
-    plt.imshow(sample_input[0, 0, :, :, 64].detach().cpu(), cmap='gray', vmin=0, vmax=1)
+    plt.imshow(sample_input[0, 0, :, :, 64].detach().cpu())
+    plt.colorbar()
     plt.title(f'Sample input #{i+1}')
 
     # fig, axes = plt.subplots(2, 4, figsize=(10, 5))
@@ -213,7 +221,7 @@ for i in tqdm(range(len(allset))):
 
     # Adjust subplot spacing and save the figure
     # plt.tight_layout()
-    plt.savefig(f'./temporary/sample#{i+1}')
+    plt.savefig(f'./presentation/sample#{i+1}')
     plt.close()
 
     # plt.figure(figsize=(20, 20))

@@ -416,7 +416,7 @@ class RandomGaussianBlur3D(object):
             number_of_channels = sample.shape[0]
             blurred_sample = []
             for channel in range(number_of_channels):
-                blur = gaussian_filter(sample[channel], sigma=(0.4))
+                blur = gaussian_filter(sample[channel], sigma=(1.5))
                 blurred_sample.append(blur)
             blurred_sample = np.stack(blurred_sample)
             blurred_sample = torch.from_numpy(blurred_sample)

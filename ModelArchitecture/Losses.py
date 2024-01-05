@@ -108,9 +108,16 @@ class LogCoshDiceLoss(nn.Module):
         dice_loss = (1 - dice_score)
         
         return torch.log((torch.exp(dice_loss) + torch.exp(-dice_loss)) / 2.0).mean()
+    
+class KLDivergenceLoss(nn.Module):
+    def __init__(self):
+        super().__init__()
+    
+    def forward(self, p, q):
+        print(torch.any((p * torch.log(p / q)).sum() == torch.nan))
+        return torch.sum(p * torch.log(p / q))
 
 class VoxelwiseSupConMSELoss(nn.Module):
-
     def __init__(self, MSE_weight=0.5, SupCon_weight=1, temperature=0.07, device='cpu'):
         super().__init__()
         self.SupCon_weight = SupCon_weight
@@ -186,7 +193,6 @@ class VoxelwiseSupConLoss_inImage(nn.Module):
         return loss
 
 class SupervisedContrastiveLoss(nn.Module):
-    
     def __init__(self, temperature=0.07):
         super().__init__()
         self.temperature = temperature
@@ -273,7 +279,6 @@ def determine_accuracy_metrics(pred, target):
 
 
 class ContrastiveLoss(nn.Module):
-
     def __init__(self, temperature=0.05, batch_size=32, n_views=2, device='cuda:0'):
         super().__init__()
         self.temperature = temperature

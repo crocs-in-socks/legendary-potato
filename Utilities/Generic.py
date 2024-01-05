@@ -66,6 +66,8 @@ def load_dataset(name: str, drive: str, transform: transforms.Compose) -> (Image
         'sim_2211_size': _load_sim_2211,
         'sim_2211_brats': _load_sim_2211,
         'sim_2211_ratios': _load_sim_2211,
+        'analogous_sim_bright': _load_analogous_sim_bright,
+        'analogous_sim_all': _load_analogous_sim_all,
         'simulated_lesions_on_noise_background': _load_simulated_lesions_on_noise_background,
     }
 
@@ -131,6 +133,30 @@ def _load_brats(drive, transform):
     testset = ImageLoader3D(paths=data['test_names_flair'], gt_paths=data['test_names_seg'], json_paths=None, image_size=128, type_of_imgs='nifty', transform=transform)
 
     return trainset, validationset, testset
+
+def _load_analogous_sim_bright(drive, transform):
+
+    ### NOT LOADED JSON PATHS
+
+    data_paths = sorted(glob.glob(f'/mnt/{drive}/Gouri/simulation_data/Real_sim_map/BrightOnly/*FLAIR.nii.gz'))
+    gt_paths = sorted(glob.glob(f'/mnt/{drive}/Gouri/simulation_data/Real_sim_map/BrightOnly/*mask.nii.gz'))
+    json_paths = sorted(glob.glob(f'/mnt/{drive}/Gouri/simulation_data/Real_sim_map/BrightOnly/*.json'))
+
+    dataset = ImageLoader3D(paths=data_paths, gt_paths=gt_paths, json_paths=None, image_size=128, type_of_imgs='nifty', transform=transform)
+
+    return dataset, [], []
+
+def _load_analogous_sim_all(drive, transform):
+
+    ### NOT LOADED JSON PATHS
+
+    data_paths = sorted(glob.glob(f'/mnt/{drive}/Gouri/simulation_data/Real_sim_map/TrainSet/*FLAIR.nii.gz'))
+    gt_paths = sorted(glob.glob(f'/mnt/{drive}/Gouri/simulation_data/Real_sim_map/TrainSet/*mask.nii.gz'))
+    json_paths = sorted(glob.glob(f'/mnt/{drive}/Gouri/simulation_data/Real_sim_map/TrainSet/*.json'))
+
+    dataset = ImageLoader3D(paths=data_paths, gt_paths=gt_paths, json_paths=None, image_size=128, type_of_imgs='nifty', transform=transform)
+
+    return dataset, [], []
 
 def _load_simulated_lesions_on_noise_background(drive, transform):
     Noise_train_data_paths = sorted(glob.glob(f'/mnt/{drive}/Gouri/simulation_data/Noise_sim_30_11_23/all/TrainSet/*FLAIR.nii.gz'))
