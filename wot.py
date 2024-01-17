@@ -1,22 +1,23 @@
 import torch
+import torch.optim as optim
 import torch.nn.functional as F
+from torch.utils.data import DataLoader
 
+from Utilities.Generic import *
+
+from ModelArchitecture.DUCK_Net import *
+from ModelArchitecture.Encoders import *
+from ModelArchitecture.UNet import *
+
+from ModelArchitecture.Transformations import *
+from ModelArchitecture.Losses import *
+from ModelArchitecture.metrics import *
+
+import numpy as np
 from tqdm import tqdm
+import matplotlib.pyplot as plt
 
-conf_consistency_criterion = torch.nn.KLDivLoss(size_average=False, reduce=False).cuda()
-count = 0
-for i in tqdm(range(100000)):
-    count += 1
+model = UNet(out_channels=2, init_features=16)
+print(sum(p.numel() for p in model.parameters()) / 10e6)
 
-    output = torch.randn(1, 60, 8, 8, 8).cuda()
-    flip_op = torch.randn(1, 60, 8, 8, 8).cuda()   
-    # CONS_LOSS
-    output += 1e-7
-    flip_op += 1e-7
-    cons_loss_a = conf_consistency_criterion(F.logsigmoid(output), F.sigmoid(flip_op)).sum()
-    print(cons_loss_a)
-    if cons_loss_a < 0:
-        break
-
-print(count)
-print('done')
+from hypnettorch.mnets import UNet

@@ -60,6 +60,7 @@ def load_dataset(name: str, drive: str, transform: transforms.Compose) -> (Image
         'wmh' : _load_wmh,
         'brats': _load_brats,
         'clean': _load_clean,
+        'lits': _load_lits,
         'sim_1000': _load_sim_1000,
         'sim_2211': _load_sim_2211,
         'sim_2211_wmh': _load_sim_2211,
@@ -84,6 +85,10 @@ def load_dataset(name: str, drive: str, transform: transforms.Compose) -> (Image
             size_ratios = name.split(':')[1].split('_')
             size_ratios = [int(ratio) for ratio in size_ratios]
             temp_trainset, temp_validationset, temp_testset = dataset_names[name.split(':')[0]](drive, transform, ratios=size_ratios)
+        elif 'window' in name:
+            window = name.split(':')[2].split('_')
+            window = [int(limit) for limit in window]
+            temp_trainset, temp_validationset, temp_testset = dataset_names[name.split(':')[0]](drive, transform, window=window)
         else:
             temp_trainset, temp_validationset, temp_testset = dataset_names[name](drive, transform)
         
@@ -131,6 +136,17 @@ def _load_brats(drive, transform):
     validationset = ImageLoader3D(paths=data['val_names_flair'], gt_paths=data['val_names_seg'], json_paths=None, image_size=128, type_of_imgs='nifty', transform=transform)
 
     testset = ImageLoader3D(paths=data['test_names_flair'], gt_paths=data['test_names_seg'], json_paths=None, image_size=128, type_of_imgs='nifty', transform=transform)
+
+    return trainset, validationset, testset
+
+def _load_lits(drive, transform, window=None):
+
+    data = np.load('../server_liver_indexes.npy', allow_pickle=True).item()
+    trainset = ImageLoader3D(paths=data['train_names_flair'], gt_paths=data['train_names_seg'], json_paths=None, image_size=128, type_of_imgs='nifty', transform=transform, window=window, ahe=True)
+
+    validationset = ImageLoader3D(paths=data['val_names_flair'], gt_paths=data['val_names_seg'], json_paths=None, image_size=128, type_of_imgs='nifty', transform=transform, window=window, ahe=True)
+
+    testset = ImageLoader3D(paths=data['test_names_flair'], gt_paths=data['test_names_seg'], json_paths=None, image_size=128, type_of_imgs='nifty', transform=transform, window=window, ahe=True)
 
     return trainset, validationset, testset
 
