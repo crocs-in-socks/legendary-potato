@@ -2,7 +2,7 @@ import re
 import glob
 import numpy as np
 from torchvision import transforms
-from ImageLoader.ImageLoader3D import ImageLoader3D
+from ImageLoader.ImageLoader3D import *
 from torch.utils.data import ConcatDataset, random_split
 
 class Constants:
@@ -61,6 +61,10 @@ def load_dataset(name: str, drive: str, transform: transforms.Compose) -> (Image
         'brats': _load_brats,
         'clean': _load_clean,
         'lits': _load_lits,
+        'stare': _load_stare,
+        'busi': _load_busi,
+        '3dpreprocessed_lits': _load_3dpreprocessed_lits,
+        '2dpreprocessed_lits': _load_2dpreprocessed_lits,
         'sim_1000': _load_sim_1000,
         'sim_2211': _load_sim_2211,
         'sim_2211_wmh': _load_sim_2211,
@@ -139,14 +143,69 @@ def _load_brats(drive, transform):
 
     return trainset, validationset, testset
 
+def _load_stare(drive, transform):
+
+    data = np.load('../server_stare_indexes.npy', allow_pickle=True).item()
+    trainset = ImageLoader2D(paths=data['train_names_flair'], gt_paths=data['train_names_seg'], json_paths=None, image_size=128, type_of_imgs='png', transform=transform)
+
+    validationset = ImageLoader2D(paths=data['val_names_flair'], gt_paths=data['val_names_seg'], json_paths=None, image_size=128, type_of_imgs='png', transform=transform)
+
+    testset = ImageLoader2D(paths=data['test_names_flair'], gt_paths=data['test_names_seg'], json_paths=None, image_size=128, type_of_imgs='png', transform=transform)
+
+    return trainset, validationset, testset
+
+def _load_busi(drive, transform):
+    
+    data = np.load('../server_busi_indexes.npy', allow_pickle=True).item()
+    trainset = ImageLoader2D(paths=data['train_names_flair'], gt_paths=data['train_names_seg'], json_paths=None, image_size=128, type_of_imgs='png', transform=transform)
+
+    validationset = ImageLoader2D(paths=data['val_names_flair'], gt_paths=data['val_names_seg'], json_paths=None, image_size=128, type_of_imgs='png', transform=transform)
+
+    testset = ImageLoader2D(paths=data['test_names_flair'], gt_paths=data['test_names_seg'], json_paths=None, image_size=128, type_of_imgs='png', transform=transform)
+
+    return trainset, validationset, testset
+
+def _load_3dpreprocessed_lits(drive, transform):
+    train_data_paths = sorted(glob.glob(f'/mnt/{drive}/LabData/models_retrained/experiments/cv2_MedFilt_and_Bilateral_and_CLAHE/TrainSet/*image*'))
+    train_gt_paths = sorted(glob.glob(f'/mnt/{drive}/LabData/models_retrained/experiments/cv2_MedFilt_and_Bilateral_and_CLAHE/TrainSet/*gt*'))
+    train_np_data_paths = sorted(glob.glob(f'/mnt/{drive}/LabData/models_retrained/experiments/cv2_MedFilt_and_Bilateral_and_CLAHE/TrainSet/*data*'))
+    trainset = PreprocessedImageLoader3D(train_data_paths, train_gt_paths, train_np_data_paths, type_of_imgs='nifty', transform=transform)
+
+    validation_data_paths = sorted(glob.glob(f'/mnt/{drive}/LabData/models_retrained/experiments/cv2_MedFilt_and_Bilateral_and_CLAHE/ValSet/*image*'))
+    validation_gt_paths = sorted(glob.glob(f'/mnt/{drive}/LabData/models_retrained/experiments/cv2_MedFilt_and_Bilateral_and_CLAHE/ValSet/*gt*'))
+    validation_np_data_paths = sorted(glob.glob(f'/mnt/{drive}/LabData/models_retrained/experiments/cv2_MedFilt_and_Bilateral_and_CLAHE/ValSet/*data*'))
+    validationset = PreprocessedImageLoader3D(validation_data_paths, validation_gt_paths, validation_np_data_paths, type_of_imgs='nifty', transform=transform)
+
+    test_data_paths = sorted(glob.glob(f'/mnt/{drive}/LabData/models_retrained/experiments/cv2_MedFilt_and_Bilateral_and_CLAHE/TestSet/*image*'))
+    test_gt_paths = sorted(glob.glob(f'/mnt/{drive}/LabData/models_retrained/experiments/cv2_MedFilt_and_Bilateral_and_CLAHE/TestSet/*gt*'))
+    test_np_data_paths = sorted(glob.glob(f'/mnt/{drive}/LabData/models_retrained/experiments/cv2_MedFilt_and_Bilateral_and_CLAHE/TestSet/*data*'))
+    testset = PreprocessedImageLoader3D(test_data_paths, test_gt_paths, test_np_data_paths, type_of_imgs='nifty', transform=transform)
+
+    return trainset, validationset, testset
+
+def _load_2dpreprocessed_lits(drive, transform):
+    train_data_paths = sorted(glob.glob(f'/mnt/{drive}/LabData/models_retrained/experiments/MedFilt_and_CLAHE_and_Bilateral2D/TrainSet/*image*'))
+    train_gt_paths = sorted(glob.glob(f'/mnt/{drive}/LabData/models_retrained/experiments/MedFilt_and_CLAHE_and_Bilateral2D/TrainSet/*gt*'))
+    trainset = PreprocessedImageLoader3D(train_data_paths, train_gt_paths, type_of_imgs='nifty', transform=transform)
+
+    validation_data_paths = sorted(glob.glob(f'/mnt/{drive}/LabData/models_retrained/experiments/MedFilt_and_CLAHE_and_Bilateral2D/ValSet/*image*'))
+    validation_gt_paths = sorted(glob.glob(f'/mnt/{drive}/LabData/models_retrained/experiments/MedFilt_and_CLAHE_and_Bilateral2D/ValSet/*gt*'))
+    validationset = PreprocessedImageLoader3D(validation_data_paths, validation_gt_paths, type_of_imgs='nifty', transform=transform)
+
+    test_data_paths = sorted(glob.glob(f'/mnt/{drive}/LabData/models_retrained/experiments/MedFilt_and_CLAHE_and_Bilateral2D/TestSet/*image*'))
+    test_gt_paths = sorted(glob.glob(f'/mnt/{drive}/LabData/models_retrained/experiments/MedFilt_and_CLAHE_and_Bilateral2D/TestSet/*gt*'))
+    testset = PreprocessedImageLoader3D(test_data_paths, test_gt_paths, type_of_imgs='nifty', transform=transform)
+
+    return trainset, validationset, testset
+
 def _load_lits(drive, transform, window=None):
 
     data = np.load('../server_liver_indexes.npy', allow_pickle=True).item()
-    trainset = ImageLoader3D(paths=data['train_names_flair'], gt_paths=data['train_names_seg'], json_paths=None, image_size=128, type_of_imgs='nifty', transform=transform, window=window, ahe=True)
+    trainset = ImageLoader3D(paths=data['train_names_flair'], gt_paths=data['train_names_seg'], json_paths=None, image_size=128, type_of_imgs='nifty', transform=transform, window=window, median_filter=True)
 
-    validationset = ImageLoader3D(paths=data['val_names_flair'], gt_paths=data['val_names_seg'], json_paths=None, image_size=128, type_of_imgs='nifty', transform=transform, window=window, ahe=True)
+    validationset = ImageLoader3D(paths=data['val_names_flair'], gt_paths=data['val_names_seg'], json_paths=None, image_size=128, type_of_imgs='nifty', transform=transform, window=window, median_filter=True)
 
-    testset = ImageLoader3D(paths=data['test_names_flair'], gt_paths=data['test_names_seg'], json_paths=None, image_size=128, type_of_imgs='nifty', transform=transform, window=window, ahe=True)
+    testset = ImageLoader3D(paths=data['test_names_flair'], gt_paths=data['test_names_seg'], json_paths=None, image_size=128, type_of_imgs='nifty', transform=transform, window=window, median_filter=True)
 
     return trainset, validationset, testset
 

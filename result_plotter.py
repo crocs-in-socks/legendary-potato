@@ -9,12 +9,12 @@ import matplotlib.pyplot as plt
 # train_accuracy = np.concatenate([data_first[2, :28], data_second[2]])
 # validation_accuracy = np.concatenate([data_first[3, :28], data_second[3]])
 
-file_name = 'Integrated_Unet_&_VGGproxy_tandem_(segmentation_>_proxy)_pat10_feature_add_1e-3_>_1e-5_lr_14_12_2023_losses'
+file_name = 'LiTS_Unet_preprocessing_0_>_400_window_init_features_64_with_crop_cv2unit8_median_filtering_and_bilateral:5050_and_AHE_cl:1_02_02_2024_losses'
 data = np.load(f'./results/{file_name}.npy')
 print(data.shape)
 train_loss = data[0]
-validation_loss = data[1]
-train_accuracy = data[2]
+validation_loss = data[2]
+train_accuracy = data[1]
 validation_accuracy = data[3]
 
 print(f'\tTrain loss\t\tValidation loss\t\tTrain accuracy\t\tValidation accuracy')
@@ -35,5 +35,5 @@ plt.plot(train_accuracy)
 plt.plot(validation_accuracy)
 plt.grid(True)
 plt.title('Classification Accuracies')
-plt.savefig(f'./temporary/{file_name}')
+plt.savefig(f'./temp')
 plt.close()

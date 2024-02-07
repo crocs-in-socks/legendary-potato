@@ -1,12 +1,11 @@
 import torch
 import torch.nn as nn
 import torch.nn.functional as F
-from collections import OrderedDict
 
-class Unet_HyperNet(nn.Module):
-    def __init__(self, input_size, output_size, main_network):
+class HyperNet(nn.Module):
+    def __init__(self, main_network):
         super().__init__()
-        pass
+        self.main_network = main_network
 
     def forward(self, x):
         pass

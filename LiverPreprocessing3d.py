@@ -18,21 +18,21 @@ from tqdm import tqdm
 import matplotlib.pyplot as plt
 
 c = Constants(
-    batch_size = 1,
+    batch_size = 2,
     patience = 5,
     num_workers = 12,
     num_epochs = 100,
-    date = '11_01_2024',
-    to_save_folder = 'Jan11',
+    date = '03_02_2024',
+    to_save_folder = 'Feb03',
     to_load_folder = None,
     device = 'cuda:1',
-    proxy_type = 'LiTS_Unet_preprocessing_0_>_200_window_init_features_64_with_ahe',
+    proxy_type = 'LiTS_Unet_preprocessing_0_>_400_window_init_features_64_with_crop_median_filtering_kernel:5_and_AHE_cl:0_005',
     train_task = 'segmentation',
     to_load_encoder_path = None,
     to_load_projector_path = None,
     to_load_classifier_path = None,
     to_load_proxy_path = None,
-    dataset = 'lits:window:0_200'
+    dataset = '3dpreprocessed_lits'
 )
 
 trainset, validationset, testset = load_dataset(c.dataset, c.drive, ToTensor3D(labeled=True))
@@ -43,7 +43,7 @@ validationloader = DataLoader(validationset, batch_size=c.batch_size, shuffle=Tr
 model = UNet(out_channels=2, init_features=64).to(c.device)
 criterion = DiceLoss().to(c.device)
 optimizer = optim.Adam(model.parameters(), lr = 0.001, eps = 0.0001)
-scheduler = optim.lr_scheduler.ReduceLROnPlateau(optimizer, mode='min', patience=5, factor=0.5, min_lr=0.00001, verbose=True)
+# scheduler = optim.lr_scheduler.ReduceLROnPlateau(optimizer, mode='max', patience=10, factor=0.5, min_lr=0.0001, verbose=True)
 
 train_dice_loss_list = []
 train_dice_score_list = []
@@ -69,7 +69,7 @@ for epoch in range(1, c.num_epochs+1):
 
     # with torch.autograd.profiler.profile(enabled=True, use_cuda=True) as prof:
 
-    for data in tqdm(trainloader):
+    for idx, data in enumerate(tqdm(trainloader)):
         image = data['input'].to(c.device)
         gt = data['gt'].to(c.device)
 
@@ -82,15 +82,15 @@ for epoch in range(1, c.num_epochs+1):
         dice = Dice_Score(segmentation[:, 1].detach().cpu().numpy(), gt[:,1].detach().cpu().numpy())
         train_dice_score += dice.item()
 
-        plt.figure(figsize=(20, 15))
-        plt.subplot(1, 3, 1)
-        plt.imshow(image[0, 0, :, :, 64].detach().cpu())
-        plt.subplot(1, 3, 2)
-        plt.imshow(segmentation[0, 1, :, : , 64].detach().cpu())
-        plt.subplot(1, 3, 3)
-        plt.imshow(gt[0, 1, :, : , 64].detach().cpu())
-        plt.savefig('./temp')
-        plt.close()
+        # plt.figure(figsize=(20, 15))
+        # plt.subplot(1, 3, 1)
+        # plt.imshow(image[0, 0, :, :, 64].detach().cpu())
+        # plt.subplot(1, 3, 2)
+        # plt.imshow(segmentation[0, 1, :, : , 64].detach().cpu())
+        # plt.subplot(1, 3, 3)
+        # plt.imshow(gt[0, 1, :, : , 64].detach().cpu())
+        # plt.savefig(f'./temp')
+        # plt.close()
 
         del image
         del gt
@@ -123,21 +123,21 @@ for epoch in range(1, c.num_epochs+1):
             dice = Dice_Score(segmentation[:, 1].cpu().numpy(), gt[:, 1].detach().cpu().numpy())
             validation_dice_score += dice.item()
 
-            plt.subplot(1, 3, 1)
-            plt.imshow(image[0, 0, :, :, 64].detach().cpu())
-            plt.subplot(1, 3, 2)
-            plt.imshow(segmentation[0, 1, :, : , 64].detach().cpu())
-            plt.subplot(1, 3, 3)
-            plt.imshow(gt[0, 1, :, : , 64].detach().cpu())
-            plt.savefig('./temp')
-            plt.close()
+            # plt.subplot(1, 3, 1)
+            # plt.imshow(image[0, 0, :, :, 64].detach().cpu())
+            # plt.subplot(1, 3, 2)
+            # plt.imshow(segmentation[0, 1, :, : , 64].detach().cpu())
+            # plt.subplot(1, 3, 3)
+            # plt.imshow(gt[0, 1, :, : , 64].detach().cpu())
+            # plt.savefig(f'./temp')
+            # plt.close()
     
     validation_dice_loss_list.append(validation_dice_loss / len(validationloader))
     validation_dice_score_list.append(validation_dice_score / len(validationloader))
     print(f'Validation dice loss at epoch#{epoch}: {validation_dice_loss_list[-1]}')
     print(f'Validation dice score at epoch#{epoch}: {validation_dice_score_list[-1]}')
 
-    scheduler.step(validation_dice_loss_list[-1])
+    # scheduler.step(validation_dice_score_list[-1])
 
     np.save(f'./results/{c.proxy_type}_{c.date}_losses.npy', [train_dice_loss_list, train_dice_score_list, validation_dice_loss_list, validation_dice_score_list])
     
