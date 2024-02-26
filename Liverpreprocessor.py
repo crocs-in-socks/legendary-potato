@@ -33,7 +33,7 @@ c = Constants(
     to_load_projector_path = None,
     to_load_classifier_path = None,
     to_load_proxy_path = None,
-    dataset = 'lits:window:0_400'
+    dataset = 'lits:window:-100_400'
 )
 
 trainset, validationset, testset = load_dataset(c.dataset, c.drive, ToTensor3D(labeled=True))

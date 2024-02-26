@@ -75,17 +75,17 @@ class ResNet3D_Encoder(nn.Module):
     def __init__(self, image_channels):
         super().__init__()
         self.expansion = 1
-        self.in_channels = 64
+        self.in_channels = 16
 
         self.conv1 = nn.Conv3d(image_channels, self.in_channels, kernel_size=7, stride=2, padding=3)
         self.bn1 = nn.BatchNorm3d(self.in_channels)
         self.relu = nn.ReLU(inplace=True)
         self.maxpool = nn.MaxPool3d(kernel_size=3, stride=2, padding=1)
 
-        self.layer1 = self._make_layer(ResNet3D_EncoderBasicBlock, 64, 2)
-        self.layer2 = self._make_layer(ResNet3D_EncoderBasicBlock, 128, 2, stride=2)
-        self.layer3 = self._make_layer(ResNet3D_EncoderBasicBlock, 256, 2, stride=2)
-        self.layer4 = self._make_layer(ResNet3D_EncoderBasicBlock, 512, 2, stride=2)
+        self.layer1 = self._make_layer(ResNet3D_EncoderBasicBlock, 16, 2)
+        self.layer2 = self._make_layer(ResNet3D_EncoderBasicBlock, 32, 2, stride=2)
+        self.layer3 = self._make_layer(ResNet3D_EncoderBasicBlock, 64, 2, stride=2)
+        self.layer4 = self._make_layer(ResNet3D_EncoderBasicBlock, 128, 2, stride=2)
 
     def _make_layer(self, block, output_channels, blocks, stride=1):
         downsample = None

@@ -18,21 +18,21 @@ from tqdm import tqdm
 import matplotlib.pyplot as plt
 
 c = Constants(
-    batch_size = 1,
+    batch_size = 2,
     patience = 5,
     num_workers = 12,
-    num_epochs = 100,
-    date = '26_02_2024',
-    to_save_folder = 'Feb26',
+    num_epochs = 200,
+    date = '07_02_2024',
+    to_save_folder = 'Feb07',
     to_load_folder = None,
     device = 'cuda:1',
-    proxy_type = 'LiTS_Unet_preprocessing_-100_>_400_window_init_features_64_no_crop_median_filter:kernel_size_5',
+    proxy_type = 'BraTS_supervised_',
     train_task = 'segmentation',
     to_load_encoder_path = None,
     to_load_projector_path = None,
     to_load_classifier_path = None,
     to_load_proxy_path = None,
-    dataset = '3dpreprocessed_lits'
+    dataset = 'brats'
 )
 
 trainset, validationset, testset = load_dataset(c.dataset, c.drive, ToTensor3D(labeled=True))
@@ -43,7 +43,7 @@ validationloader = DataLoader(validationset, batch_size=c.batch_size, shuffle=Tr
 model = UNet(out_channels=2, init_features=64).to(c.device)
 criterion = DiceLoss().to(c.device)
 optimizer = optim.Adam(model.parameters(), lr = 0.001, eps = 0.0001)
-# scheduler = optim.lr_scheduler.ReduceLROnPlateau(optimizer, mode='max', patience=10, factor=0.1, min_lr=0.0001, verbose=True)
+# scheduler = optim.lr_scheduler.ReduceLROnPlateau(optimizer, mode='max', patience=10, factor=0.5, min_lr=0.0001, verbose=True)
 
 train_dice_loss_list = []
 train_dice_score_list = []
@@ -123,15 +123,14 @@ for epoch in range(1, c.num_epochs+1):
             dice = Dice_Score(segmentation[:, 1].cpu().numpy(), gt[:, 1].detach().cpu().numpy())
             validation_dice_score += dice.item()
 
-            plt.figure(figsize=(20, 15))
-            plt.subplot(1, 3, 1)
-            plt.imshow(image[0, 0, :, :, 64].detach().cpu())
-            plt.subplot(1, 3, 2)
-            plt.imshow(segmentation[0, 1, :, : , 64].detach().cpu())
-            plt.subplot(1, 3, 3)
-            plt.imshow(gt[0, 1, :, : , 64].detach().cpu())
-            plt.savefig(f'./temp')
-            plt.close()
+            # plt.subplot(1, 3, 1)
+            # plt.imshow(image[0, 0, :, :, 64].detach().cpu())
+            # plt.subplot(1, 3, 2)
+            # plt.imshow(segmentation[0, 1, :, : , 64].detach().cpu())
+            # plt.subplot(1, 3, 3)
+            # plt.imshow(gt[0, 1, :, : , 64].detach().cpu())
+            # plt.savefig(f'./temp')
+            # plt.close()
     
     validation_dice_loss_list.append(validation_dice_loss / len(validationloader))
     validation_dice_score_list.append(validation_dice_score / len(validationloader))

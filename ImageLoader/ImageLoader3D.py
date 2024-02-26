@@ -194,25 +194,38 @@ class ImageLoader3D(Dataset):
                 file.close()
 
         og_dims = image.shape
-        og_gt = np.stack([gt==0, gt>0], 0).astype(np.single)
+
+        if self.liver_preprocess:
+            og_gt = np.stack([gt==0, gt==2], 0).astype(np.single)
+        else:
+            og_gt = np.stack([gt==0, gt>0], 0).astype(np.single)
         
         if self.window is not None:
             image[gt == 0] = self.window[0]
             image[image < self.window[0]] = self.window[0]
             image[image > self.window[1]] = self.window[0]
-        
-            # image -= np.min(image)
-            # image /= np.max(image)
 
-        image, img_crop_para = self.tight_crop_data(image)
-        if self.clean:
-            clean = clean[img_crop_para[0]:img_crop_para[0] + img_crop_para[1], img_crop_para[2]:img_crop_para[2] + img_crop_para[3], img_crop_para[4]:img_crop_para[4] + img_crop_para[5]]
+            to_crop_image = image
+            to_crop_image -= np.min(image)
+            to_crop_image /= np.max(image)
 
-        gt = gt[img_crop_para[0]:img_crop_para[0] + img_crop_para[1], img_crop_para[2]:img_crop_para[2] + img_crop_para[3], img_crop_para[4]:img_crop_para[4] + img_crop_para[5]]
+            # mean = np.mean(image)
+            # std = np.std(image)
+            # image = (image - mean) / std
+
+        og_image = image
+
+        # cropped_image, img_crop_para = self.tight_crop_data(to_crop_image)
+        # image = image[img_crop_para[0]:img_crop_para[0] + img_crop_para[1], img_crop_para[2]:img_crop_para[2] + img_crop_para[3], img_crop_para[4]:img_crop_para[4] + img_crop_para[5]]
+
+        # if self.clean:
+        #     clean = clean[img_crop_para[0]:img_crop_para[0] + img_crop_para[1], img_crop_para[2]:img_crop_para[2] + img_crop_para[3], img_crop_para[4]:img_crop_para[4] + img_crop_para[5]]
+
+        # gt = gt[img_crop_para[0]:img_crop_para[0] + img_crop_para[1], img_crop_para[2]:img_crop_para[2] + img_crop_para[3], img_crop_para[4]:img_crop_para[4] + img_crop_para[5]]
 
         if self.liver_preprocess:
 
-            # image = medfilt(image, kernel_size=5)
+            image = medfilt(image, kernel_size=5)
 
             # for z in range(image.shape[-1]):
             #     image[:, :, z] = denoise_bilateral(image[:, :, z])
@@ -222,29 +235,41 @@ class ImageLoader3D(Dataset):
 
             # non_zero_indices = np.ndarray.nonzero(image)
             # image[non_zero_indices] = exposure.equalize_adapthist(image[non_zero_indices], clip_limit=0.005)
+            
+            # max_value = np.max(image)
+            # min_value = np.min(image)
+            # image = -1 + 2 * (image - min_value) / (max_value - min_value)
+            # image = exposure.equalize_adapthist(image, clip_limit=0.0005)
 
             # image = image.astype(np.float32)
             # image = (image * 255).astype(np.uint8)
-            image = (image).astype(np.uint8)
+
+            ### image = (image).astype(np.uint8)
+
             # uint8_image = (image * 255).astype(np.uint8)
 
-            image = cv2.medianBlur(image, ksize=5)
+            ### image = cv2.medianBlur(image, ksize=5)
             # for z in range(image.shape[-1]):
                 # image[:, :, z] = cv2.bilateralFilter(image[:, :, z], d=7, sigmaColor=50, sigmaSpace=50)
 
             # uint8_image = (image * 255).astype(np.uint8)
 
-            clahe = cv2.createCLAHE(clipLimit=0.05)
-            for z in range(image.shape[-1]):
+           ### clahe = cv2.createCLAHE(clipLimit=0.05)
+            ### for z in range(image.shape[-1]):
                 # image[:, :, z] = clahe.apply(uint8_image[:, :, z])
-                image[:, :, z] = clahe.apply(image[:, :, z])
+              ### image[:, :, z] = clahe.apply(image[:, :, z])
                 
             # image = image.astype(np.float32) / 255.0
+
+            # mean = np.mean(image)
+            # std = np.std(image)
+            # image = (image - mean) / std
+
             image = image.astype(float)
             gt = (gt==2).astype(float)
 
-        if self.subtracted:
-            subtracted = subtracted[img_crop_para[0]:img_crop_para[0] + img_crop_para[1], img_crop_para[2]:img_crop_para[2] + img_crop_para[3], img_crop_para[4]:img_crop_para[4] + img_crop_para[5]]
+        # if self.subtracted:
+        #     subtracted = subtracted[img_crop_para[0]:img_crop_para[0] + img_crop_para[1], img_crop_para[2]:img_crop_para[2] + img_crop_para[3], img_crop_para[4]:img_crop_para[4] + img_crop_para[5]]
 
         image = skiform.resize(image, (self.image_size, self.image_size, self.image_size), order = 1, preserve_range=True)
         if self.clean:
@@ -283,9 +308,10 @@ class ImageLoader3D(Dataset):
         data_dict['input'] = image
         data_dict['gt'] = gt
 
-        data_dict['crop_para'] = img_crop_para
-        data_dict['og_dims'] = og_dims
-        data_dict['og_gt'] = og_gt
+        # data_dict['crop_para'] = img_crop_para
+        # data_dict['og_dims'] = og_dims
+        # data_dict['og_gt'] = og_gt
+        # data_dict['og_image'] = og_image
 
         if self.clean:
             data_dict['clean'] = clean

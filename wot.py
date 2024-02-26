@@ -9,6 +9,7 @@ from ModelArchitecture.DUCK_Net import *
 from ModelArchitecture.Encoders import *
 from ModelArchitecture.UNet import *
 from ModelArchitecture.Hypernets import *
+from ModelArchitecture.SlimUNETR.SlimUNETR import *
 
 from ModelArchitecture.Transformations import *
 from ModelArchitecture.Losses import *
@@ -17,6 +18,13 @@ from ModelArchitecture.metrics import *
 import numpy as np
 from tqdm import tqdm
 import matplotlib.pyplot as plt
+
+device = 'cuda:1'
+target = SlimUNETR(in_channels=1, out_channels=2).to(device)
+hype = HyperNet(target).to(device)
+
+x = torch.randn(1, 1, 128, 128, 128).to(device)
+prediction = hype(x)
 
 # trainset, validationset, testset = load_dataset('lits:window:0_400', '70b9cd2d-ce8a-4b10-bb6d-96ae6a51130a', ToTensor3D(labeled=True))
 
@@ -35,9 +43,9 @@ import matplotlib.pyplot as plt
 #     plt.savefig(f'./temporary/{idx}')
 #     plt.close()
 
-data = np.load('../server_stare_indexes.npy', allow_pickle=True).item()
+# data = np.load('../server_stare_indexes.npy', allow_pickle=True).item()
 
-print(data.keys())
+# print(data.keys())
 
 # for key in data.keys():
 #     sub = data[key]
